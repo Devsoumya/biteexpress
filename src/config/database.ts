@@ -1,4 +1,4 @@
-import { type Db, MongoClient } from 'mongodb';
+import { MongoClient } from 'mongodb';
 
 export const RESTAURANTS_COLLECTION = 'restaurants';
 
@@ -8,8 +8,4 @@ export function createMongoClient(uri: string): MongoClient {
     appName: 'biteexpress-api',
     serverSelectionTimeoutMS: 5000,
   });
-}
-
-export async function pingDatabase(db: Db): Promise<void> {
-  await db.command({ ping: 1 });
 }

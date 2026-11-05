@@ -7,10 +7,3 @@ export interface ErrorBody {
 export interface ErrorResponseBody {
   error: ErrorBody;
 }
-
-export function errorResponse(
-  code: string,
-  message: string,
-): ErrorResponseBody {
-  return { error: { code, message } };
-}

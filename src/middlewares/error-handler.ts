@@ -1,7 +1,7 @@
 import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
-import { ApplicationError } from '../shared/errors/application-error';
-import { errorResponse } from '../shared/errors/error-response';
+import { ApplicationError } from '../utils/application-error';
+import { errorResponse } from '../utils/error-response';
 
 export const errorHandler: ErrorRequestHandler = (
   error: unknown,

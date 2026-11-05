@@ -1,5 +1,4 @@
 import type { MongoClient } from 'mongodb';
-import { pingDatabase } from '../../src/config/database';
 import { TEST_DB_NAME, connectTestClient } from '../helpers/test-database';
 
 describe('test database connection', () => {
@@ -12,9 +11,9 @@ describe('test database connection', () => {
   afterAll(() => client.close());
 
   it('pings through TEST_MONGODB_URI with directConnection=true', async () => {
-    await expect(pingDatabase(client.db(TEST_DB_NAME))).resolves.toBe(
-      undefined,
-    );
+    await expect(
+      client.db(TEST_DB_NAME).command({ ping: 1 }),
+    ).resolves.toMatchObject({ ok: 1 });
   });
 
   it('uses the biteexpress_test database', () => {

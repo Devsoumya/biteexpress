@@ -1,12 +1,10 @@
 import type { MongoClient } from 'mongodb';
 import request from 'supertest';
-import { createApp } from '../../src/app';
-import { RESTAURANTS_COLLECTION } from '../../src/config/database';
-import {
-  createReadinessCheck,
-  mongoReadinessProbes,
-} from '../../src/modules/health/readiness';
-import { TEST_DB_NAME, connectTestClient } from '../helpers/test-database';
+import { createApp } from '../../../src/app';
+import { RESTAURANTS_COLLECTION } from '../../../src/config/database';
+import { MongoHealthRepository } from '../../../src/repositories/health.repository';
+import { CachedReadinessService } from '../../../src/services/readiness.service';
+import { TEST_DB_NAME, connectTestClient } from '../../helpers/test-database';
 
 describe('GET /ready against Atlas Local', () => {
   let client: MongoClient;
@@ -18,18 +16,17 @@ describe('GET /ready against Atlas Local', () => {
   afterAll(() => client.close());
 
   function appForIndex(indexName: string) {
-    const checkReadiness = createReadinessCheck(
-      mongoReadinessProbes(
-        client.db(TEST_DB_NAME),
-        RESTAURANTS_COLLECTION,
-        indexName,
-      ),
+    const repository = new MongoHealthRepository(
+      client.db(TEST_DB_NAME),
+      RESTAURANTS_COLLECTION,
+      indexName,
     );
-    return createApp({ checkReadiness });
+    return createApp({
+      readinessService: new CachedReadinessService(repository),
+    });
   }
 
-  // Step 1 has no seed, so neither the collection nor the index exists. A
-  // missing index makes $search return empty results, hence the 503.
+  // A missing index makes $search return empty results, hence the 503.
   it.each(['restaurants_search', 'does_not_exist'])(
     'returns 503 with searchIndex: missing when %s does not exist',
     async (indexName) => {

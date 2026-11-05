@@ -1,15 +1,9 @@
 import type { Server } from 'node:http';
 import { createApp } from './app';
-import {
-  RESTAURANTS_COLLECTION,
-  createMongoClient,
-  pingDatabase,
-} from './config/database';
+import { RESTAURANTS_COLLECTION, createMongoClient } from './config/database';
 import { loadEnv } from './config/env';
-import {
-  createReadinessCheck,
-  mongoReadinessProbes,
-} from './modules/health/readiness';
+import { MongoHealthRepository } from './repositories/health.repository';
+import { CachedReadinessService } from './services/readiness.service';
 
 async function closeServer(server: Server): Promise<void> {
   await new Promise<void>((resolve, reject) => {
@@ -23,13 +17,16 @@ async function start(): Promise<void> {
 
   try {
     await client.connect();
-    const db = client.db();
-    await pingDatabase(db);
-
-    const checkReadiness = createReadinessCheck(
-      mongoReadinessProbes(db, RESTAURANTS_COLLECTION, env.SEARCH_INDEX_NAME),
+    const healthRepository = new MongoHealthRepository(
+      client.db(),
+      RESTAURANTS_COLLECTION,
+      env.SEARCH_INDEX_NAME,
     );
-    const app = createApp({ checkReadiness });
+    await healthRepository.ping();
+
+    const app = createApp({
+      readinessService: new CachedReadinessService(healthRepository),
+    });
 
     const server = app.listen(env.PORT);
     await new Promise<void>((resolve, reject) => {
