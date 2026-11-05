@@ -1,6 +1,7 @@
 import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
 import { ApplicationError } from '../shared/errors/application-error';
+import { errorResponse } from '../shared/errors/error-response';
 
 export const errorHandler: ErrorRequestHandler = (
   error: unknown,
@@ -11,19 +12,19 @@ export const errorHandler: ErrorRequestHandler = (
   if (error instanceof ApplicationError) {
     response
       .status(error.statusCode)
-      .json({ error: { code: error.code, message: error.message } });
+      .json(errorResponse(error.code, error.message));
     return;
   }
 
   if (error instanceof ZodError) {
-    response.status(400).json({
-      error: { code: 'VALIDATION_ERROR', message: 'Invalid request' },
-    });
+    response
+      .status(400)
+      .json(errorResponse('VALIDATION_ERROR', 'Invalid request'));
     return;
   }
 
   console.error(error);
-  response.status(500).json({
-    error: { code: 'INTERNAL_ERROR', message: 'Internal server error' },
-  });
+  response
+    .status(500)
+    .json(errorResponse('INTERNAL_ERROR', 'Internal server error'));
 };

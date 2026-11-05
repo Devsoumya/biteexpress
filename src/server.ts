@@ -1,11 +1,15 @@
 import type { Server } from 'node:http';
-import { app } from './app';
+import { createApp } from './app';
 import {
-  closeDatabase,
-  connectToDatabase,
+  RESTAURANTS_COLLECTION,
+  createMongoClient,
   pingDatabase,
 } from './config/database';
 import { loadEnv } from './config/env';
+import {
+  createReadinessCheck,
+  mongoReadinessProbes,
+} from './modules/health/readiness';
 
 async function closeServer(server: Server): Promise<void> {
   await new Promise<void>((resolve, reject) => {
@@ -15,10 +19,18 @@ async function closeServer(server: Server): Promise<void> {
 
 async function start(): Promise<void> {
   const env = loadEnv();
-  await connectToDatabase(env.MONGODB_URI);
+  const client = createMongoClient(env.MONGODB_URI);
 
   try {
-    await pingDatabase();
+    await client.connect();
+    const db = client.db();
+    await pingDatabase(db);
+
+    const checkReadiness = createReadinessCheck(
+      mongoReadinessProbes(db, RESTAURANTS_COLLECTION, env.SEARCH_INDEX_NAME),
+    );
+    const app = createApp({ checkReadiness });
+
     const server = app.listen(env.PORT);
     await new Promise<void>((resolve, reject) => {
       server.once('listening', resolve);
@@ -38,7 +50,7 @@ async function start(): Promise<void> {
         process.exitCode = 1;
       }
       try {
-        await closeDatabase();
+        await client.close();
       } catch (error) {
         console.error('MongoDB shutdown failed', error);
         process.exitCode = 1;
@@ -48,7 +60,7 @@ async function start(): Promise<void> {
     process.once('SIGTERM', () => void shutdown('SIGTERM'));
     process.once('SIGINT', () => void shutdown('SIGINT'));
   } catch (error) {
-    await closeDatabase();
+    await client.close();
     throw error;
   }
 }

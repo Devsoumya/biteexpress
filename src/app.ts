@@ -1,14 +1,22 @@
-import express from 'express';
+import express, { type Express } from 'express';
 import { errorHandler } from './middleware/error-handler';
 import { notFoundHandler } from './middleware/not-found-handler';
+import { createHealthRouter } from './modules/health/health.routes';
+import type { ReadinessCheck } from './modules/health/readiness';
 import { restaurantRouter } from './modules/restaurants/restaurant.routes';
 
-export const app = express();
+export interface AppDependencies {
+  checkReadiness: ReadinessCheck;
+}
 
-app.use(express.json());
-app.get('/health', (_request, response) => {
-  response.status(200).json({ status: 'ok' });
-});
-app.use('/v1/restaurants', restaurantRouter);
-app.use(notFoundHandler);
-app.use(errorHandler);
+export function createApp(deps: AppDependencies): Express {
+  const app = express();
+
+  app.use(express.json());
+  app.use(createHealthRouter({ checkReadiness: deps.checkReadiness }));
+  app.use('/v1/restaurants', restaurantRouter);
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+
+  return app;
+}

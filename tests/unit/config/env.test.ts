@@ -9,6 +9,11 @@ describe('loadEnv', () => {
       PORT: 3000,
       NODE_ENV: 'development',
       MONGODB_URI,
+      TENANT_ID: 'biteexpress',
+      SEARCH_INDEX_NAME: 'restaurants_search',
+      QUERY_MAX_TIME_MS: 2000,
+      BEST_MIN_VOTES: 20,
+      LOG_LEVEL: 'info',
     });
   });
 
@@ -28,5 +33,26 @@ describe('loadEnv', () => {
 
   it('rejects an out-of-range PORT', () => {
     expect(() => loadEnv({ MONGODB_URI, PORT: '70000' })).toThrow();
+  });
+
+  it('coerces numeric settings from strings', () => {
+    const env = loadEnv({
+      MONGODB_URI,
+      QUERY_MAX_TIME_MS: '500',
+      BEST_MIN_VOTES: '0',
+    });
+
+    expect(env.QUERY_MAX_TIME_MS).toBe(500);
+    expect(env.BEST_MIN_VOTES).toBe(0);
+  });
+
+  it.each([
+    ['QUERY_MAX_TIME_MS', '0'],
+    ['BEST_MIN_VOTES', '-1'],
+    ['LOG_LEVEL', 'verbose'],
+    ['TENANT_ID', ''],
+    ['SEARCH_INDEX_NAME', ''],
+  ])('rejects %s=%j', (name, value) => {
+    expect(() => loadEnv({ MONGODB_URI, [name]: value })).toThrow();
   });
 });

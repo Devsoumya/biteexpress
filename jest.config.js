@@ -16,10 +16,11 @@ const base = {
       },
     ],
   },
-  collectCoverageFrom: ['<rootDir>/src/**/*.ts', '!<rootDir>/src/server.ts'],
 };
 
 module.exports = {
+  // Coverage options are global in Jest; inside `projects` they are ignored.
+  collectCoverageFrom: ['<rootDir>/src/**/*.ts', '!<rootDir>/src/server.ts'],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov'],
   projects: [
@@ -33,6 +34,8 @@ module.exports = {
       displayName: 'integration',
       testMatch: ['<rootDir>/tests/integration/**/*.test.ts'],
       testTimeout: 20000,
+      globalSetup: '<rootDir>/tests/setup/global-setup.ts',
+      globalTeardown: '<rootDir>/tests/setup/global-teardown.ts',
     },
   ],
 };
