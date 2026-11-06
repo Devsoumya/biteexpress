@@ -43,7 +43,7 @@ export default async function globalSetup(): Promise<void> {
     );
     await waitForSearchIndex(collection, TEST_SEARCH_INDEX_NAME);
 
-    // The fixture set (ADR-005), inserted through the validator, then waited
+    // The fixture set, inserted through the validator, then waited
     // for until the search index sees all of it.
     await collection.insertMany([...ALL_FIXTURES, ...SEARCH_FIXTURES]);
     await waitForSearch(

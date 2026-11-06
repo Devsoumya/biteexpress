@@ -114,7 +114,7 @@ export type RatingLabel =
 
 /**
  * A restaurant in list results (RFC-001 §5). Unknown values are null and keys
- * are always present; Step 5 adds `distanceKm`, present only with coordinates.
+ * are always present, except `distanceKm`, present only with coordinates.
  */
 export interface RestaurantListItem {
   id: string;

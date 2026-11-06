@@ -11,7 +11,7 @@ import { buildSearchPipeline } from '../utils/restaurant-search.builder';
 import { searchRestaurantsQuerySchema } from '../validators/restaurant.schema';
 
 // Measures every list/search request shape against the seeded data (ADR-003
-// "Still to do"), with the production query builder, so the numbers are for
+// "Measured performance"), with the production query builder, so the numbers are for
 // exactly the queries the API runs. Output: a Markdown table for ADR-003.
 // Numbers from atlas-local on one machine are indicative only.
 

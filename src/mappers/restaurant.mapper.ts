@@ -75,7 +75,7 @@ export function toRestaurantDraft(
 
 /**
  * Bands derived from the source data, where the label was a clean function of
- * the average (ADR-001 Context): Poor 1.8-2.4, Average 2.5-3.4, Good 3.5-3.9,
+ * the average (ADR-001 Rule 8): Poor 1.8-2.4, Average 2.5-3.4, Good 3.5-3.9,
  * Very Good 4.0-4.4, Excellent 4.5-4.9. Derived, not stored (Rule 8).
  */
 export function ratingLabel(average: number | undefined): RatingLabel {

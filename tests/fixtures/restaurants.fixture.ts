@@ -6,7 +6,7 @@ import { countryByIsoCode } from '../../src/utils/country';
 import { EARTH_RADIUS_KM } from '../../src/utils/geo';
 import { normalizeCity, normalizeCuisines } from '../../src/utils/normalize';
 
-// The list and search tests' data (ADR-005): small, hand-built, each document
+// The list and search tests' data: small, hand-built, each document
 // chosen for a test. Its own tenant, so tests that write (in other tenants)
 // never disturb it. Inserted once by the integration globalSetup.
 export const FIXTURE_TENANT = 'fixtures';
