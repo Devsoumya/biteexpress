@@ -1,6 +1,6 @@
 import { MongoClient } from 'mongodb';
 import request from 'supertest';
-import { createApp } from '../../../src/app';
+import { createTestApp } from '../../helpers/app';
 import type {
   ReadinessResult,
   ReadinessService,
@@ -15,7 +15,7 @@ function serviceReturning(result: ReadinessResult): ReadinessService {
 describe('GET /health', () => {
   it('reports liveness without consulting readiness or MongoDB', async () => {
     const readinessService = { check: jest.fn() };
-    const app = createApp({ readinessService });
+    const app = createTestApp({ readinessService });
 
     const response = await request(app).get('/health');
 
@@ -28,7 +28,7 @@ describe('GET /health', () => {
 describe('GET /ready', () => {
   it('returns 200 with the checks when ready', async () => {
     const checks = { mongo: 'ok', searchIndex: 'ok' } as const;
-    const app = createApp({
+    const app = createTestApp({
       readinessService: serviceReturning({ ready: true, checks }),
     });
 
@@ -41,7 +41,7 @@ describe('GET /ready', () => {
 
   it('returns 503 with the checks when not ready', async () => {
     const checks = { mongo: 'ok', searchIndex: 'missing' } as const;
-    const app = createApp({
+    const app = createTestApp({
       readinessService: serviceReturning({ ready: false, checks }),
     });
 
@@ -68,7 +68,7 @@ describe('GET /ready', () => {
         'restaurants',
         'restaurants_search',
       );
-      const app = createApp({
+      const app = createTestApp({
         readinessService: new CachedReadinessService(repository),
       });
 

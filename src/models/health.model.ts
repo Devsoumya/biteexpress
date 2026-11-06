@@ -4,6 +4,8 @@ export type SearchIndexState = ProbedIndexState | 'error' | 'skipped';
 export interface ReadinessChecks {
   mongo: 'ok' | 'fail';
   searchIndex: SearchIndexState;
+  /** Present when the search vocabulary is wired in (Step 6). */
+  vocabulary?: 'ok' | 'not_loaded';
 }
 
 export interface ReadinessResult {
@@ -27,6 +29,8 @@ export interface ReadinessServiceOptions {
   ttlMs?: number;
   /** Clock, injectable so tests need no timers. Default Date.now. */
   now?: () => number;
+  /** The search vocabulary; when given, readiness requires it loaded. */
+  vocabulary?: { isLoaded(): boolean };
 }
 
 export interface HealthResponseBody {

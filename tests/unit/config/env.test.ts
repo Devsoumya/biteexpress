@@ -13,7 +13,10 @@ describe('loadEnv', () => {
       SEARCH_INDEX_NAME: 'restaurants_search',
       QUERY_MAX_TIME_MS: 2000,
       BEST_MIN_VOTES: 20,
+      VOCABULARY_REFRESH_MS: 300000,
+      SLOW_REQUEST_MS: 500,
       LOG_LEVEL: 'info',
+      SEED_CSV_PATH: 'zomato_data.csv',
     });
   });
 

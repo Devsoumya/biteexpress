@@ -26,11 +26,21 @@ describe('MongoHealthRepository against Atlas Local', () => {
     ).resolves.toBeUndefined();
   });
 
-  // Step 1 has no seed: the collection does not exist, and listSearchIndexes
-  // returns an empty cursor rather than an error.
-  it('reports a missing index when the collection does not exist', async () => {
+  it('reports ok for the queryable index the global setup built', async () => {
     await expect(
       repositoryFor('restaurants_search').searchIndexState(),
-    ).resolves.toBe('missing');
+    ).resolves.toBe('ok');
+  });
+
+  // listSearchIndexes on a collection that does not exist returns an empty
+  // cursor rather than an error.
+  it('reports a missing index when the collection does not exist', async () => {
+    const repository = new MongoHealthRepository(
+      client.db(TEST_DB_NAME),
+      'no_such_collection',
+      'restaurants_search',
+    );
+
+    await expect(repository.searchIndexState()).resolves.toBe('missing');
   });
 });

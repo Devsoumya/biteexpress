@@ -18,6 +18,7 @@ interface CachedResult {
 export class CachedReadinessService implements ReadinessService {
   private readonly ttlMs: number;
   private readonly now: () => number;
+  private readonly vocabulary: ReadinessServiceOptions['vocabulary'];
   private cached: CachedResult | undefined;
 
   constructor(
@@ -26,6 +27,7 @@ export class CachedReadinessService implements ReadinessService {
   ) {
     this.ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
     this.now = options.now ?? Date.now;
+    this.vocabulary = options.vocabulary;
   }
 
   async check(): Promise<ReadinessResult> {
@@ -43,7 +45,13 @@ export class CachedReadinessService implements ReadinessService {
     } catch {
       return {
         ready: false,
-        checks: { mongo: 'fail', searchIndex: 'skipped' },
+        checks: {
+          mongo: 'fail',
+          searchIndex: 'skipped',
+          ...(this.vocabulary && {
+            vocabulary: this.vocabulary.isLoaded() ? 'ok' : 'not_loaded',
+          }),
+        },
       };
     }
 
@@ -53,9 +61,16 @@ export class CachedReadinessService implements ReadinessService {
     } catch {
       searchIndex = 'error';
     }
+    if (!this.vocabulary) {
+      return {
+        ready: searchIndex === 'ok',
+        checks: { mongo: 'ok', searchIndex },
+      };
+    }
+    const vocabulary = this.vocabulary.isLoaded() ? 'ok' : 'not_loaded';
     return {
-      ready: searchIndex === 'ok',
-      checks: { mongo: 'ok', searchIndex },
+      ready: searchIndex === 'ok' && vocabulary === 'ok',
+      checks: { mongo: 'ok', searchIndex, vocabulary },
     };
   }
 }

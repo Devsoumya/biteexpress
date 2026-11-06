@@ -94,4 +94,48 @@ describe('CachedReadinessService', () => {
     await expect(service.check()).resolves.toMatchObject({ ready: true });
     expect(repository.ping).toHaveBeenCalledTimes(2);
   });
+
+  describe('with the search vocabulary', () => {
+    const okRepository = {
+      ping: () => Promise.resolve(),
+      searchIndexState: () => Promise.resolve('ok' as const),
+    };
+
+    it('reports vocabulary ok and is ready when it is loaded', async () => {
+      const service = new CachedReadinessService(okRepository, {
+        vocabulary: { isLoaded: () => true },
+      });
+
+      await expect(service.check()).resolves.toEqual({
+        ready: true,
+        checks: { mongo: 'ok', searchIndex: 'ok', vocabulary: 'ok' },
+      });
+    });
+
+    it('is not ready while the vocabulary is not loaded', async () => {
+      const service = new CachedReadinessService(okRepository, {
+        vocabulary: { isLoaded: () => false },
+      });
+
+      await expect(service.check()).resolves.toEqual({
+        ready: false,
+        checks: { mongo: 'ok', searchIndex: 'ok', vocabulary: 'not_loaded' },
+      });
+    });
+
+    it('still reports it when MongoDB fails', async () => {
+      const service = new CachedReadinessService(
+        {
+          ping: () => Promise.reject(new Error('down')),
+          searchIndexState: jest.fn(),
+        },
+        { vocabulary: { isLoaded: () => true } },
+      );
+
+      await expect(service.check()).resolves.toEqual({
+        ready: false,
+        checks: { mongo: 'fail', searchIndex: 'skipped', vocabulary: 'ok' },
+      });
+    });
+  });
 });

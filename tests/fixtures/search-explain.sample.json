@@ -1,0 +1,51 @@
+{
+  "stages": [
+    {
+      "$_internalSearchMongotRemote": {
+        "explain": {
+          "query": {
+            "type": "ConstantScoreQuery",
+            "stats": {
+              "context": {
+                "millisElapsed": 0.237041,
+                "invocationCounts": {
+                  "createWeight": 1,
+                  "createScorer": 7
+                }
+              },
+              "match": {
+                "millisElapsed": 0.149886,
+                "invocationCounts": {
+                  "nextDoc": 66
+                }
+              },
+              "score": {
+                "millisElapsed": 0
+              }
+            }
+          },
+          "collectors": {
+            "allCollectorStats": {
+              "millisElapsed": 0.464953,
+              "invocationCounts": {
+                "collect": 387,
+                "competitiveIterator": 4,
+                "setScorer": 5
+              }
+            }
+          },
+          "resultMaterialization": {
+            "stats": {
+              "millisElapsed": 0.803541,
+              "invocationCounts": {
+                "retrieveAndSerialize": 1
+              }
+            }
+          }
+        }
+      },
+      "nReturned": 0,
+      "executionTimeMillisEstimate": 10
+    }
+  ]
+}

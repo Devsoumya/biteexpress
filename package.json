@@ -10,18 +10,23 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "jest --runInBand",
+    "seed": "tsx src/scripts/seed.ts",
+    "explain": "tsx src/scripts/explain.ts",
+    "test": "jest --selectProjects unit integration --runInBand",
     "test:unit": "jest --selectProjects unit",
     "test:integration": "jest --selectProjects integration --runInBand",
-    "test:coverage": "jest --runInBand --coverage",
+    "test:coverage": "jest --selectProjects unit integration --runInBand --coverage",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "csv-parse": "^7.0.3",
     "express": "^5.1.0",
     "mongodb": "^6.18.0",
+    "pino": "^10.4.0",
+    "swagger-ui-dist": "^5.34.1",
     "zod": "^4.0.5"
   },
   "devDependencies": {
@@ -39,5 +44,8 @@
     "tsx": "^4.20.3",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.38.0"
+  },
+  "scarfSettings": {
+    "enabled": false
   }
 }

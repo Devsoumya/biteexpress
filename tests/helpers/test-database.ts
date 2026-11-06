@@ -4,6 +4,9 @@ import { MongoClient } from 'mongodb';
 // so it must never be the application's database.
 export const TEST_DB_NAME = 'biteexpress_test';
 
+/** Same name the API uses by default (SEARCH_INDEX_NAME). */
+export const TEST_SEARCH_INDEX_NAME = 'restaurants_search';
+
 // The one place tests read the environment (AGENTS.md §6).
 export function testMongoUri(): string {
   const uri = process.env['TEST_MONGODB_URI'];
@@ -41,6 +44,15 @@ export async function connectTestClient(): Promise<MongoClient> {
   return client;
 }
 
-export async function dropTestDatabase(client: MongoClient): Promise<void> {
-  await client.db(TEST_DB_NAME).dropDatabase();
+/**
+ * Deletes every document in the test database but keeps collections,
+ * validators and indexes. Dropping is avoided on purpose: on atlas-local, a
+ * search index recreated right after its database was dropped can be lost
+ * (created, then never listed), which made the next run's setup time out.
+ */
+export async function clearTestDatabase(client: MongoClient): Promise<void> {
+  const db = client.db(TEST_DB_NAME);
+  for (const { name } of await db.listCollections().toArray()) {
+    await db.collection(name).deleteMany({});
+  }
 }

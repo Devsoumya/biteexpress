@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import type { HealthController } from '../controllers/health.controller';
+import { methodNotAllowed } from '../middlewares/method-not-allowed';
 
 export function createHealthRouter(controller: HealthController): Router {
   const router = Router();
-  router.get('/health', controller.getHealth);
-  router.get('/ready', controller.getReady);
+  router.route('/health').get(controller.getHealth).all(methodNotAllowed);
+  router.route('/ready').get(controller.getReady).all(methodNotAllowed);
   return router;
 }

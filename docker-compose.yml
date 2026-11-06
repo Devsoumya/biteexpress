@@ -23,6 +23,23 @@ services:
       start_period: 60s
       start_interval: 2s
 
+  # One-shot: validator, unique index, CSV upsert, search index, wait until
+  # queryable (ADR-004). Same image as the API; exits 0 when done.
+  seed:
+    build:
+      context: .
+      target: runtime
+    command: ['node', 'dist/scripts/seed.js']
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-biteexpress}:${MONGO_ROOT_PASSWORD:-local-dev-only}@mongo:27017/biteexpress?authSource=admin&directConnection=true
+      TENANT_ID: ${TENANT_ID:-biteexpress}
+      SEARCH_INDEX_NAME: ${SEARCH_INDEX_NAME:-restaurants_search}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: 'no'
+
   api:
     build:
       context: .
@@ -37,15 +54,18 @@ services:
       SEARCH_INDEX_NAME: ${SEARCH_INDEX_NAME:-restaurants_search}
       QUERY_MAX_TIME_MS: ${QUERY_MAX_TIME_MS:-2000}
       BEST_MIN_VOTES: ${BEST_MIN_VOTES:-20}
+      VOCABULARY_REFRESH_MS: ${VOCABULARY_REFRESH_MS:-300000}
+      SLOW_REQUEST_MS: ${SLOW_REQUEST_MS:-500}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
-      mongo:
-        condition: service_healthy
-    # Liveness until Step 3 adds the seed and search index; then /ready.
+      seed:
+        condition: service_completed_successfully
+    # Readiness: ping + search index queryable. The timeout exceeds the 5 s
+    # server selection timeout, which /ready waits out when MongoDB is down.
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/health || exit 1']
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/ready || exit 1']
       interval: 10s
-      timeout: 3s
+      timeout: 7s
       retries: 3
       start_period: 10s
 

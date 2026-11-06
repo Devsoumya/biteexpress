@@ -12,3 +12,21 @@ export function countryBySeedCode(code: number): Country | undefined {
 export function countryByIsoCode(code: string): Country | undefined {
   return BY_ISO_CODE.get(code);
 }
+
+/**
+ * Currency of a normalized city's country, from the vocabulary snapshot (the
+ * tenant's cities with their country); undefined when the city is not known,
+ * and the caller must then require `currency` (ADR-003 Rule 11).
+ */
+export function currencyForCity(
+  normalizedCity: string,
+  cities: ReadonlyMap<string, string>,
+): string | undefined {
+  const isoCode = cities.get(normalizedCity);
+  return isoCode === undefined ? undefined : BY_ISO_CODE.get(isoCode)?.currency;
+}
+
+/** ISO 4217 codes of the supported markets. */
+export const SUPPORTED_CURRENCIES: readonly string[] = [
+  ...new Set(COUNTRIES.map((c) => c.currency)),
+];
