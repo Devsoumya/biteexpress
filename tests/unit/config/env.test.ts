@@ -13,11 +13,21 @@ describe('loadEnv', () => {
       SEARCH_INDEX_NAME: 'restaurants_search',
       QUERY_MAX_TIME_MS: 2000,
       BEST_MIN_VOTES: 20,
-      VOCABULARY_REFRESH_MS: 300000,
+      VOCABULARY_REFRESH_MS: 86400000,
       SLOW_REQUEST_MS: 500,
       LOG_LEVEL: 'info',
       SEED_CSV_PATH: 'zomato_data.csv',
     });
+  });
+
+  it('rejects a vocabulary refresh interval longer than a Node timer can wait', () => {
+    expect(() =>
+      loadEnv({ MONGODB_URI, VOCABULARY_REFRESH_MS: '2147483648' }),
+    ).toThrow();
+    expect(
+      loadEnv({ MONGODB_URI, VOCABULARY_REFRESH_MS: '2147483647' })
+        .VOCABULARY_REFRESH_MS,
+    ).toBe(2147483647);
   });
 
   it('coerces PORT from a string', () => {

@@ -308,6 +308,13 @@ function parseCity(
   }
 }
 
+/** How a dish was matched, for the interpretation's notes. */
+export function dishNote({ phrase, cuisines }: Dish): string {
+  return cuisines.length > 0
+    ? `${phrase}: restaurants with it in their name, or ${cuisines.join(' or ')} places that probably serve it`
+    : `${phrase}: restaurants with it in their name`;
+}
+
 /** Pass 5: dish phrases (name phrase OR the cuisines that serve them). */
 function parseDishes(
   words: Words,
@@ -326,6 +333,10 @@ function parseDishes(
   if (dishes.length === 0) return;
   if (dishes.length > MAX_DISHES)
     notes.push(`only the first ${MAX_DISHES} dishes are used`);
+  // The data has no dish field, so say how each dish was matched: a name
+  // match is real, a cuisine match means "probably serves it". The wording
+  // says nothing about order, which depends on the sort.
+  for (const dish of dishes.slice(0, MAX_DISHES)) notes.push(dishNote(dish));
   criteria.dishes = dishes.slice(0, MAX_DISHES);
   if (dishes.length > 1) notes.push('several dishes: matching any of them');
 }

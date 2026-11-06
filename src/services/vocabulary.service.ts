@@ -10,7 +10,7 @@ export const EMPTY_VOCABULARY: SearchVocabulary = {
 };
 
 export interface VocabularyServiceOptions {
-  /** How often the timer reloads (VOCABULARY_REFRESH_MS, default 5 min). */
+  /** How often the timer reloads (VOCABULARY_REFRESH_MS, default 24 h). */
   refreshMs: number;
   /** Where refresh failures go (server.ts logs them). */
   onError: (error: unknown) => void;

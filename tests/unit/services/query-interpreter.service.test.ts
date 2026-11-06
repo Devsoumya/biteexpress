@@ -1,6 +1,7 @@
 import type { SearchVocabulary } from '../../../src/models/search.model';
 import {
   RuleBasedQueryInterpreter,
+  dishNote,
   parseAmount,
   tokenize,
 } from '../../../src/services/query-interpreter.service';
@@ -67,7 +68,10 @@ describe('RuleBasedQueryInterpreter', () => {
           dishes: [{ phrase: 'vada pav', cuisines: ['street food'] }],
           sort: 'distance',
         },
-        notes: ['ignored: place, that, serves'],
+        notes: [
+          'vada pav: restaurants with it in their name, or street food places that probably serve it',
+          'ignored: place, that, serves',
+        ],
       });
     });
 
@@ -77,6 +81,7 @@ describe('RuleBasedQueryInterpreter', () => {
           dishes: [{ phrase: 'vada pav', cuisines: ['street food'] }],
         },
         notes: [
+          'vada pav: restaurants with it in their name, or street food places that probably serve it',
           'nearest needs lat/lng; showing best matches',
           'ignored: place, that, serves',
         ],
@@ -250,10 +255,27 @@ describe('RuleBasedQueryInterpreter', () => {
             { phrase: 'biryani', cuisines: ['biryani'] },
           ],
         },
-        notes: ['several dishes: matching any of them', 'ignored: or'],
+        notes: [
+          'dosa: restaurants with it in their name, or south indian places that probably serve it',
+          'biryani: restaurants with it in their name, or biryani places that probably serve it',
+          'several dishes: matching any of them',
+          'ignored: or',
+        ],
       });
       expect(read('chinese pizza').notes).toContain(
         'several cuisines: matching any of them',
+      );
+    });
+
+    it('says how a dish was matched: in names, or by the cuisines that serve it', () => {
+      expect(
+        dishNote({ phrase: 'momos', cuisines: ['tibetan', 'chinese'] }),
+      ).toBe(
+        'momos: restaurants with it in their name, or tibetan or chinese places that probably serve it',
+      );
+      // A dish whose cuisines the tenant doesn't have matches names only.
+      expect(dishNote({ phrase: 'shawarma', cuisines: [] })).toBe(
+        'shawarma: restaurants with it in their name',
       );
     });
 

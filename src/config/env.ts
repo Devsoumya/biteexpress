@@ -13,9 +13,16 @@ const envSchema = z.object({
   SEARCH_INDEX_NAME: z.string().min(1).default('restaurants_search'),
   QUERY_MAX_TIME_MS: z.coerce.number().int().positive().default(2000),
   BEST_MIN_VOTES: z.coerce.number().int().nonnegative().default(20),
-  // Restaurants are not added daily, so 5 minutes is fresh enough; a POST
+  // Restaurants are not added daily, so once a day is fresh enough; a POST
   // also refreshes the instance that handled it (ADR-002 Pass 4).
-  VOCABULARY_REFRESH_MS: z.coerce.number().int().positive().default(300_000),
+  // At most 2^31 - 1: a longer Node timer fires after 1 ms instead, which
+  // would turn the refresh into a tight loop against the database.
+  VOCABULARY_REFRESH_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(2_147_483_647)
+    .default(86_400_000),
   // Read only by the seed script; relative paths resolve from the working
   // directory (the repo root on the host, /app in the image).
   SEED_CSV_PATH: z.string().min(1).default('zomato_data.csv'),
