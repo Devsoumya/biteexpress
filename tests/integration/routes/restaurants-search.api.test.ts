@@ -23,7 +23,12 @@ const ids = (docs: RestaurantDocument[]) =>
 const AT_ANCHOR = `lat=${ANCHOR.lat}&lng=${ANCHOR.lng}`;
 
 interface SearchPage {
-  data: { id: string; name: string; distanceKm?: number }[];
+  data: {
+    id: string;
+    name: string;
+    distanceKm?: number;
+    features: { onlineDelivery: boolean | null };
+  }[];
   nextCursor: string | null;
   interpretation: { notes: string[] } & Record<string, unknown>;
 }
@@ -178,6 +183,15 @@ describe('GET /v1/restaurants/search against Atlas Search (search fixtures)', ()
     expect((await searchIds(q('online delivery in gurgaon'))).sort()).toEqual(
       ids([S.goliNear, S.dakshin]).sort(),
     );
+  });
+
+  it('items show the feature they were filtered on', async () => {
+    const page = await search(q('online delivery in gurgaon'));
+
+    expect(page.data.length).toBeGreaterThan(0);
+    for (const item of page.data) {
+      expect(item.features.onlineDelivery).toBe(true);
+    }
   });
 
   it('a city typo after "in" is corrected and said so', async () => {

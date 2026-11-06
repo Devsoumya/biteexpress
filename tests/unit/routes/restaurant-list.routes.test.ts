@@ -40,7 +40,7 @@ function hit(id: string, extra: Record<string, unknown> = {}) {
     address: { line: 'Sector 29', city: 'Gurgaon' },
     country: { code: 'IN', name: 'India' },
     cuisines: ['Cafe'],
-    rating: { average: 4.1 },
+    rating: { average: 4.1, votes: 25 },
     paginationToken: `token-${id.slice(-2)}`,
     ...extra,
   };

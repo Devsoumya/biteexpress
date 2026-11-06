@@ -189,7 +189,7 @@ const minimalDocument: RestaurantDocument = {
 };
 
 describe('toRestaurantListItem', () => {
-  it('maps a document to the flat list shape', () => {
+  it('maps a document to the list shape, with the fields filters use', () => {
     expect(toRestaurantListItem(seededDocument)).toEqual({
       id: '5f1d7c3e9b1e8a0012345678',
       name: 'Goli Vada Pav No. 1',
@@ -198,6 +198,34 @@ describe('toRestaurantListItem', () => {
       country: { code: 'IN', name: 'India' },
       cuisines: ['Street Food', 'Fast Food'],
       averageRating: 3.6,
+      votes: 112,
+      ratingLabel: 'Good',
+      cost: { averageForTwo: 300, currency: 'INR', priceRange: 1 },
+      features: {
+        tableBooking: false,
+        onlineDelivery: true,
+        deliveringNow: false,
+      },
+    });
+  });
+
+  it('keeps every key and uses null for unknown cost, features and rating', () => {
+    expect(toRestaurantListItem(minimalDocument)).toEqual({
+      id: '5f1d7c3e9b1e8a0012345678',
+      name: expect.any(String),
+      address: expect.any(String),
+      city: 'Makati City',
+      country: { code: 'PH', name: 'Philippines' },
+      cuisines: [],
+      averageRating: null,
+      votes: 0,
+      ratingLabel: 'Not rated',
+      cost: { averageForTwo: null, currency: 'PHP', priceRange: null },
+      features: {
+        tableBooking: null,
+        onlineDelivery: null,
+        deliveringNow: null,
+      },
     });
   });
 
@@ -223,19 +251,11 @@ describe('toRestaurantListItem', () => {
 });
 
 describe('toRestaurantDetail', () => {
-  it('adds location as latitude/longitude, cost, features, votes, label and sourceId', () => {
+  it('adds locality, location as latitude/longitude and sourceId to the list item', () => {
     expect(toRestaurantDetail(seededDocument)).toEqual({
       ...toRestaurantListItem(seededDocument),
       locality: 'Sector 29',
       location: { latitude: 28.4595, longitude: 77.0688 },
-      cost: { averageForTwo: 300, currency: 'INR', priceRange: 1 },
-      features: {
-        tableBooking: false,
-        onlineDelivery: true,
-        deliveringNow: false,
-      },
-      votes: 112,
-      ratingLabel: 'Good',
       sourceId: 308322,
     });
   });

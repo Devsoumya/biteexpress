@@ -51,6 +51,31 @@ const listItemShape = {
     .number()
     .nullable()
     .describe('null when the restaurant is not rated yet'),
+  votes: z.number().int(),
+  ratingLabel: z.enum([
+    'Not rated',
+    'Poor',
+    'Average',
+    'Good',
+    'Very Good',
+    'Excellent',
+  ]),
+  cost: z.strictObject({
+    averageForTwo: z
+      .number()
+      .nullable()
+      .describe('In currency; what minCost, maxCost and sort=cost use'),
+    currency: z
+      .string()
+      .nullable()
+      .describe("ISO 4217, from the restaurant's country"),
+    priceRange: z.number().int().nullable().describe('1 (cheap) to 4'),
+  }),
+  features: z.strictObject({
+    tableBooking: z.boolean().nullable(),
+    onlineDelivery: z.boolean().nullable(),
+    deliveringNow: z.boolean().nullable(),
+  }),
 };
 
 export const restaurantListItemSchema = z.strictObject({
@@ -80,28 +105,6 @@ export const restaurantDetailSchema = z.strictObject({
     .strictObject({ latitude: z.number(), longitude: z.number() })
     .nullable()
     .describe('null when unknown (no coordinates, or 0 on an axis)'),
-  cost: z.strictObject({
-    averageForTwo: z.number().nullable(),
-    currency: z
-      .string()
-      .nullable()
-      .describe("ISO 4217, from the restaurant's country"),
-    priceRange: z.number().int().nullable(),
-  }),
-  features: z.strictObject({
-    tableBooking: z.boolean().nullable(),
-    onlineDelivery: z.boolean().nullable(),
-    deliveringNow: z.boolean().nullable(),
-  }),
-  votes: z.number().int(),
-  ratingLabel: z.enum([
-    'Not rated',
-    'Poor',
-    'Average',
-    'Good',
-    'Very Good',
-    'Excellent',
-  ]),
   sourceId: z
     .number()
     .int()

@@ -70,7 +70,7 @@ function hit(id: string, token: string): RestaurantSearchHit {
     address: { line: 'line', city: 'Gurgaon' },
     country: { code: 'IN', name: 'India' },
     cuisines: [],
-    rating: { average: 4 },
+    rating: { average: 4, votes: 30 },
     paginationToken: token,
   };
 }

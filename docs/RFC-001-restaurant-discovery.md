@@ -81,6 +81,7 @@ List behavior worth knowing:
 - **Missing values are placed, not faked:** unrated restaurants come last by default, and an explicit `sort=rating` excludes them. Restaurants without a location come last in a distance order.
 - **Location:** without a city, coordinates mean a 5 km radius (50 km max). With a city, the city filters and the coordinates only order the results and add `distanceKm`.
 - **Cost queries need a currency** (sent, or the city's). Rupees and dollars are never compared.
+- **Items show what was filtered on:** besides name, address, city, country, cuisines and `averageRating`, each item carries `votes`, `ratingLabel`, `cost` (`averageForTwo`, `currency`, `priceRange`) and `features`, with `null` for unknown values, plus `distanceKm` with coordinates. GET by id adds `locality`, `location` and `sourceId`.
 
 Errors use one envelope, `{ "error": { "code", "message", "details"? } }`, with a code for each situation, so clients can react without parsing messages:
 

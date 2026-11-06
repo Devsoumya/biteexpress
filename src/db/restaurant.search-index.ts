@@ -65,13 +65,17 @@ export const RESTAURANT_SEARCH_INDEX_DEFINITION: Document = {
       },
     },
   },
+  // Every list-item field, so mongot serves a page alone: with
+  // returnStoredSource a field left out here never reaches the response.
   storedSource: {
     include: [
       'name',
       'address',
       'country',
       'cuisines',
-      'rating.average',
+      'rating',
+      'cost',
+      'features',
       'location',
     ],
   },

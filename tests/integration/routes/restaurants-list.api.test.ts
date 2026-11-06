@@ -92,6 +92,48 @@ describe('GET /v1/restaurants against Atlas Search (fixtures)', () => {
   const listIds = async (query: string) =>
     (await list(query)).data.map((item) => item.id);
 
+  describe('items', () => {
+    it('show the values filters and sorts use: votes, label, cost and features', async () => {
+      const page = await list(`city=gurgaon&limit=100&${AT_ANCHOR}`);
+      const item = page.data.find(
+        (i) => i.id === G.goliVadaPav._id.toHexString(),
+      );
+
+      expect(item).toEqual({
+        id: G.goliVadaPav._id.toHexString(),
+        name: 'Goli Vada Pav No. 1',
+        address: 'Goli Vada Pav No. 1 Road',
+        city: 'Gurgaon',
+        country: { code: 'IN', name: 'India' },
+        cuisines: ['Street Food'],
+        averageRating: 3.6,
+        votes: 112,
+        ratingLabel: 'Good',
+        cost: { averageForTwo: 200, currency: 'INR', priceRange: null },
+        features: {
+          tableBooking: null,
+          onlineDelivery: null,
+          deliveringNow: null,
+        },
+        distanceKm: expect.any(Number),
+      });
+    });
+
+    it('show null for an unknown cost and an unrated restaurant', async () => {
+      const page = await list('city=gurgaon&limit=100');
+      const byId = new Map(page.data.map((i) => [i.id, i]));
+
+      expect(byId.get(G.noCost._id.toHexString())).toMatchObject({
+        cost: { averageForTwo: null, currency: 'INR', priceRange: null },
+      });
+      expect(byId.get(G.unrated._id.toHexString())).toMatchObject({
+        averageRating: null,
+        votes: 2,
+        ratingLabel: 'Not rated',
+      });
+    });
+  });
+
   describe('filters', () => {
     it('city, through an alias, case-insensitively', async () => {
       const result = await listIds('city=GURUGRAM&limit=100');

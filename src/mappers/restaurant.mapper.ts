@@ -100,6 +100,7 @@ function roundKm(distanceKm: number): number {
 export function toRestaurantListItem(
   source: ListItemSource,
 ): RestaurantListItem {
+  const { cost, features, rating } = source;
   return {
     id: source._id.toHexString(),
     name: source.name,
@@ -107,26 +108,9 @@ export function toRestaurantListItem(
     city: source.address.city,
     country: { code: source.country.code, name: source.country.name },
     cuisines: source.cuisines,
-    averageRating: source.rating?.average ?? null,
-    ...(typeof source.distanceKm === 'number' && {
-      distanceKm: roundKm(source.distanceKm),
-    }),
-  };
-}
-
-export function toRestaurantDetail(
-  document: RestaurantDocument,
-): RestaurantDetail {
-  const { location, cost, features, rating } = document;
-  return {
-    ...toRestaurantListItem({ ...document, distanceKm: undefined }),
-    locality: document.address.locality ?? null,
-    location: location
-      ? {
-          latitude: location.coordinates[1],
-          longitude: location.coordinates[0],
-        }
-      : null,
+    averageRating: rating.average ?? null,
+    votes: rating.votes,
+    ratingLabel: ratingLabel(rating.average),
     cost: {
       averageForTwo: cost?.averageForTwo ?? null,
       currency: cost?.currency ?? null,
@@ -137,8 +121,25 @@ export function toRestaurantDetail(
       onlineDelivery: features?.onlineDelivery ?? null,
       deliveringNow: features?.deliveringNow ?? null,
     },
-    votes: rating.votes,
-    ratingLabel: ratingLabel(rating.average),
+    ...(typeof source.distanceKm === 'number' && {
+      distanceKm: roundKm(source.distanceKm),
+    }),
+  };
+}
+
+export function toRestaurantDetail(
+  document: RestaurantDocument,
+): RestaurantDetail {
+  const { location } = document;
+  return {
+    ...toRestaurantListItem({ ...document, distanceKm: undefined }),
+    locality: document.address.locality ?? null,
+    location: location
+      ? {
+          latitude: location.coordinates[1],
+          longitude: location.coordinates[0],
+        }
+      : null,
     sourceId: document.sourceId ?? null,
   };
 }

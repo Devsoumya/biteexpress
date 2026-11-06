@@ -33,7 +33,7 @@ One search index, `restaurants_search`, with static mappings (`src/db/restaurant
 | `_id`                                                                     | objectId                                 | The final tie-breaker                                 |
 | `cuisines`, `address.locality`                                            | string                                   | Relevance boosts in search                            |
 
-`storedSource` keeps the list-item fields inside the index, and lists use `returnStoredSource`, so `mongot` serves a page without fetching documents from `mongod`.
+`storedSource` keeps the list-item fields inside the index (`name`, `address`, `country`, `cuisines`, `rating`, `cost`, `features`, `location`), and lists use `returnStoredSource`, so `mongot` serves a page without fetching documents from `mongod`. A field left out of `storedSource` can't appear in a list item. `rating`, `cost` and `features` are stored so that each item shows the values that filters and sorts use (votes, cost, currency, price range, features); a client can then see why a restaurant matched. This adds a few small fields per document to the index.
 
 The B-tree indexes are just `_id` and `uq_tenant_source` (unique per tenant on `sourceId`, for seed upserts). There is no 2dsphere index and no compound index, because none would be used.
 

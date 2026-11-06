@@ -95,8 +95,16 @@ export interface RestaurantRepositoryOptions {
 /** The fields a list item is built from: a search hit or a full document. */
 export type ListItemSource = Pick<
   RestaurantSearchHit,
-  '_id' | 'name' | 'address' | 'country' | 'cuisines' | 'distanceKm'
-> & { rating?: { average?: number } };
+  | '_id'
+  | 'name'
+  | 'address'
+  | 'country'
+  | 'cuisines'
+  | 'rating'
+  | 'cost'
+  | 'features'
+  | 'distanceKm'
+>;
 
 /** Business operations behind the restaurant endpoints; no HTTP, no driver. */
 export interface RestaurantService {
@@ -124,6 +132,19 @@ export interface RestaurantListItem {
   country: { code: string; name: string };
   cuisines: string[];
   averageRating: number | null;
+  votes: number;
+  ratingLabel: RatingLabel;
+  // Cost and features are shown because list filters and sorts use them.
+  cost: {
+    averageForTwo: number | null;
+    currency: string | null;
+    priceRange: number | null;
+  };
+  features: {
+    tableBooking: boolean | null;
+    onlineDelivery: boolean | null;
+    deliveringNow: boolean | null;
+  };
   /** Only when the request had coordinates and the restaurant has a location. */
   distanceKm?: number;
 }
@@ -135,18 +156,6 @@ export interface RestaurantDetail extends Omit<
 > {
   locality: string | null;
   location: { latitude: number; longitude: number } | null;
-  cost: {
-    averageForTwo: number | null;
-    currency: string | null;
-    priceRange: number | null;
-  };
-  features: {
-    tableBooking: boolean | null;
-    onlineDelivery: boolean | null;
-    deliveringNow: boolean | null;
-  };
-  votes: number;
-  ratingLabel: RatingLabel;
   /** Zomato ID for seeded restaurants; null for restaurants created via the API. */
   sourceId: number | null;
 }

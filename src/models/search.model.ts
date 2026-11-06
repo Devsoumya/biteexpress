@@ -97,7 +97,13 @@ export interface RestaurantSearchHit {
   address: { line: string; locality?: string; city: string };
   country: { code: string; name: string };
   cuisines: string[];
-  rating?: { average?: number };
+  rating: { average?: number; votes: number };
+  cost?: { averageForTwo?: number; currency: string; priceRange?: number };
+  features?: {
+    tableBooking?: boolean;
+    onlineDelivery?: boolean;
+    deliveringNow?: boolean;
+  };
   location?: GeoPoint;
   /** Present only when the criteria had an origin; null without a location. */
   distanceKm?: number | null;
