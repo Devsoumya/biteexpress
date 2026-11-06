@@ -157,4 +157,10 @@ export const FILLERS: readonly string[] = [
   'outlet',
   'outlets',
   'to',
+  // Meals: "dinner" is one typo from the cuisine "diner" (Pass 6b).
+  'dinner',
+  'lunch',
+  'meal',
+  'meals',
+  'dining',
 ];

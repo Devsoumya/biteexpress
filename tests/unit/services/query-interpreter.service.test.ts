@@ -32,6 +32,10 @@ export const VOCABULARY: SearchVocabulary = {
     'cafe',
     'pizza',
     'biryani',
+    'italian',
+    'diner',
+    'mediterranean',
+    'thai',
   ]),
 };
 
@@ -283,6 +287,95 @@ describe('RuleBasedQueryInterpreter', () => {
       expect(read('street food').criteria).toEqual({
         cuisines: ['street food'],
       });
+    });
+  });
+
+  describe('near-miss cuisines and dishes (pass 6b)', () => {
+    it.each<[string, Record<string, unknown>, string[]]>([
+      [
+        'chineese in gurgaon',
+        { city: 'gurgaon', cuisines: ['chinese'] },
+        ["showing results for 'chinese' (you typed 'chineese')"],
+      ],
+      [
+        'north indain in new delhi',
+        { city: 'new delhi', cuisines: ['north indian'] },
+        ["showing results for 'north indian' (you typed 'north indain')"],
+      ],
+      [
+        'pizzas',
+        { cuisines: ['pizza'] },
+        ["showing results for 'pizza' (you typed 'pizzas')"],
+      ],
+      [
+        // 12 letters: two typos allowed.
+        'mediteranaen',
+        { cuisines: ['mediterranean'] },
+        ["showing results for 'mediterranean' (you typed 'mediteranaen')"],
+      ],
+      [
+        'dosaa in bangalore',
+        {
+          city: 'bangalore',
+          dishes: [{ phrase: 'dosa', cuisines: ['south indian'] }],
+        },
+        [
+          "showing results for 'dosa' (you typed 'dosaa')",
+          'dosa: restaurants with it in their name, or south indian places that probably serve it',
+        ],
+      ],
+    ])('corrects %s', (q, criteria, notes) => {
+      expect(read(q)).toEqual({ criteria, notes });
+    });
+
+    it('adds a corrected cuisine to exact ones, matching any', () => {
+      expect(read('pizza chineese')).toEqual({
+        criteria: { cuisines: ['pizza', 'chinese'] },
+        notes: [
+          "showing results for 'chinese' (you typed 'chineese')",
+          'several cuisines: matching any of them',
+        ],
+      });
+    });
+
+    it.each([
+      ['chineeze', 'two typos in an 8-letter word'],
+      ['thar', 'a 4-letter word is never corrected (thai is one edit away)'],
+      ['goli vada pao', 'pao is too short; the whole query stays fuzzy text'],
+    ])('does not correct %s: %s', (q) => {
+      const { notes } = read(q);
+      expect(notes.some((note) => note.includes('you typed'))).toBe(false);
+    });
+
+    it('never turns a meal word into a cuisine (dinner vs diner)', () => {
+      expect(read('dinner in gurgaon')).toEqual({
+        criteria: { city: 'gurgaon' },
+        notes: ['ignored: dinner'],
+      });
+    });
+
+    it('two close candidates: not corrected, kept as a boost term, with a note', () => {
+      // Built to collide: "kerila" is one edit from both spellings.
+      const vocabulary = {
+        cities: VOCABULARY.cities,
+        cuisines: new Set(['kerala', 'kerela']),
+      };
+      expect(
+        interpreter.interpret('kerila in goa', {
+          hasCoords: false,
+          vocabulary,
+        }),
+      ).toEqual({
+        criteria: { city: 'goa', boostTerms: ['kerila'] },
+        notes: [
+          "'kerila' is close to kerala or kerela; did you mean one of them?",
+          'boosting: kerila',
+        ],
+      });
+    });
+
+    it('exact matches add no correction note', () => {
+      expect(read('chinese in gurgaon').notes).toEqual([]);
     });
   });
 

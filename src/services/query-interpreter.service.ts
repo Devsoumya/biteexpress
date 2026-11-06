@@ -19,10 +19,16 @@ import type {
   QueryInterpreter,
   SearchVocabulary,
 } from '../models/search.model';
-import { withinOneEdit } from '../utils/edit-distance';
+import {
+  editDistanceWithin,
+  typoAllowance,
+  withinOneEdit,
+} from '../utils/edit-distance';
 import { normalize, normalizeCity } from '../utils/normalize';
 
 const MAX_PHRASE_WORDS = 4;
+/** Longest cuisine or dish phrase checked for a typo (Pass 6b). */
+const MAX_NEAR_MISS_WORDS = 3;
 export const MAX_DISHES = 10;
 export const MAX_BOOST_TERMS = 10;
 
@@ -373,37 +379,132 @@ function parseDishes(
 ): void {
   const dishes: Dish[] = [];
   for (const phrase of byLengthDescending(DISHES.keys())) {
-    if (words.takeAll(phrase) === 0) continue;
-    const cuisines = (DISHES.get(phrase) ?? []).filter((c) =>
-      vocabulary.cuisines.has(c),
-    );
-    dishes.push({ phrase, cuisines });
+    if (words.takeAll(phrase) > 0) dishes.push(dishFor(phrase, vocabulary));
   }
   if (dishes.length === 0) return;
   if (dishes.length > MAX_DISHES)
     notes.push(`only the first ${MAX_DISHES} dishes are used`);
+  for (const dish of dishes.slice(0, MAX_DISHES))
+    addDish(dish, criteria, notes);
+}
+
+/** A lexicon dish with the cuisines that serve it, if the tenant has them. */
+function dishFor(phrase: string, vocabulary: SearchVocabulary): Dish {
+  const cuisines = (DISHES.get(phrase) ?? []).filter((c) =>
+    vocabulary.cuisines.has(c),
+  );
+  return { phrase, cuisines };
+}
+
+function addDish(dish: Dish, criteria: ParsedCriteria, notes: string[]): void {
+  const dishes = criteria.dishes ?? [];
+  if (dishes.length >= MAX_DISHES) return;
   // The data has no dish field, so say how each dish was matched: a name
   // match is real, a cuisine match means "probably serves it". The wording
   // says nothing about order, which depends on the sort.
-  for (const dish of dishes.slice(0, MAX_DISHES)) notes.push(dishNote(dish));
-  criteria.dishes = dishes.slice(0, MAX_DISHES);
-  if (dishes.length > 1) notes.push('several dishes: matching any of them');
+  notes.push(dishNote(dish));
+  criteria.dishes = [...dishes, dish];
 }
 
 /** Pass 6: the cuisines the tenant's restaurants list. */
 function parseCuisines(
   words: Words,
   criteria: ParsedCriteria,
-  notes: string[],
   vocabulary: SearchVocabulary,
 ): void {
   const cuisines: string[] = [];
   for (const cuisine of byLengthDescending(vocabulary.cuisines)) {
     if (words.takeAll(cuisine) > 0) cuisines.push(cuisine);
   }
-  if (cuisines.length === 0) return;
-  criteria.cuisines = cuisines;
-  if (cuisines.length > 1) notes.push('several cuisines: matching any of them');
+  if (cuisines.length > 0) criteria.cuisines = cuisines;
+}
+
+/** A cuisine or dish a typed phrase is close to. */
+interface NearMiss {
+  kind: 'cuisine' | 'dish';
+  value: string;
+}
+
+/**
+ * Cuisines and dishes within the typo allowance of `typed`, compared word by
+ * word, so every word gets its own allowance by its length. A name that is
+ * both a dish and a cuisine (biryani) counts once, as the dish, as in the
+ * exact passes.
+ */
+function nearMisses(typed: string, vocabulary: SearchVocabulary): NearMiss[] {
+  const typedWords = typed.split(' ');
+  const close = (candidate: string) => {
+    const candidateWords = candidate.split(' ');
+    return (
+      candidateWords.length === typedWords.length &&
+      typedWords.every((word, i) => {
+        const target = candidateWords[i];
+        return (
+          target !== undefined &&
+          editDistanceWithin(word, target, typoAllowance(word)) !== undefined
+        );
+      })
+    );
+  };
+  const dishes = [...DISHES.keys()].filter(close);
+  const cuisines = [...vocabulary.cuisines].filter(
+    (cuisine) => close(cuisine) && !dishes.includes(cuisine),
+  );
+  return [
+    ...dishes.map((value) => ({ kind: 'dish' as const, value })),
+    ...cuisines.map((value) => ({ kind: 'cuisine' as const, value })),
+  ];
+}
+
+/**
+ * Pass 6b: a misspelled cuisine or dish, longest phrase first. Corrected only
+ * when exactly one is close enough, as for a city; otherwise the words stay
+ * boost terms and a note lists the options.
+ */
+function parseNearMisses(
+  words: Words,
+  criteria: ParsedCriteria,
+  notes: string[],
+  vocabulary: SearchVocabulary,
+): void {
+  const ambiguous = new Set<number>();
+  for (let count = MAX_NEAR_MISS_WORDS; count >= 1; count--) {
+    for (let i = 0; i + count <= words.length; i++) {
+      const typed = words.phraseAt(i, count);
+      if (typed === undefined) continue;
+      const indexes = Array.from({ length: count }, (_, k) => i + k);
+      if (indexes.some((index) => ambiguous.has(index))) continue;
+      if (typed.split(' ').some(isNoiseWord)) continue;
+
+      const candidates = nearMisses(typed, vocabulary);
+      const [only] = candidates;
+      if (candidates.length === 1 && only !== undefined) {
+        words.take(i, count);
+        notes.push(
+          `showing results for '${only.value}' (you typed '${typed}')`,
+        );
+        if (only.kind === 'dish') {
+          addDish(dishFor(only.value, vocabulary), criteria, notes);
+        } else if (!criteria.cuisines?.includes(only.value)) {
+          criteria.cuisines = [...(criteria.cuisines ?? []), only.value];
+        }
+      } else if (candidates.length > 1) {
+        for (const index of indexes) ambiguous.add(index);
+        const options = candidates.map((c) => c.value).sort();
+        notes.push(
+          `'${typed}' is close to ${options.join(' or ')}; did you mean one of them?`,
+        );
+      }
+    }
+  }
+}
+
+/** After the dish and cuisine passes: say when several are matched as any. */
+function noteSeveral(criteria: ParsedCriteria, notes: string[]): void {
+  if ((criteria.dishes?.length ?? 0) > 1)
+    notes.push('several dishes: matching any of them');
+  if ((criteria.cuisines?.length ?? 0) > 1)
+    notes.push('several cuisines: matching any of them');
 }
 
 /** Intent precedence: nearest (with coordinates) > best > cheapest. */
@@ -482,7 +583,9 @@ export class RuleBasedQueryInterpreter implements QueryInterpreter {
     parseFeatures(words, criteria);
     parseCity(words, criteria, notes, vocabulary);
     parseDishes(words, criteria, notes, vocabulary);
-    parseCuisines(words, criteria, notes, vocabulary);
+    parseCuisines(words, criteria, vocabulary);
+    parseNearMisses(words, criteria, notes, vocabulary);
+    noteSeveral(criteria, notes);
     applyIntents(intents, criteria, notes, {
       hasCoords,
       bestMinVotes: this.options.bestMinVotes,

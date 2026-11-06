@@ -205,6 +205,24 @@ describe('GET /v1/restaurants/search against Atlas Search (search fixtures)', ()
     );
   });
 
+  it.each([
+    ['chineese in gurgaon', 'chinese in gurgaon', 'chinese'],
+    ['dosaa in gurgaon', 'dosa in gurgaon', 'dosa'],
+  ])(
+    'a misspelled cuisine or dish filters like the right spelling: %s',
+    async (typo, correct, corrected) => {
+      const page = await search(q(typo));
+
+      expect(page.data.map((item) => item.id).sort()).toEqual(
+        (await searchIds(q(correct))).sort(),
+      );
+      expect(page.data.length).toBeGreaterThan(0);
+      expect(page.interpretation.notes).toContain(
+        `showing results for '${corrected}' (you typed '${typo.split(' ')[0]}')`,
+      );
+    },
+  );
+
   it('an unknown city after "in" gives an empty list with a note', async () => {
     const page = await search(q('south indian in atlantis'));
 
