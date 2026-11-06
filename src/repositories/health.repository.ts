@@ -4,6 +4,10 @@ import type {
   ProbedIndexState,
 } from '../models/health.model';
 
+/**
+ * The MongoDB checks behind /ready (never /health, which must not touch the
+ * database). Read-only: it never creates the collection or the index.
+ */
 export class MongoHealthRepository implements HealthRepository {
   constructor(
     private readonly db: Db,

@@ -5,6 +5,7 @@ import type {
   ReadinessService,
 } from '../models/health.model';
 
+/** Liveness (/health) and readiness (/ready) for the orchestrator (ADR-004). */
 export class HealthController {
   constructor(private readonly readinessService: ReadinessService) {}
 

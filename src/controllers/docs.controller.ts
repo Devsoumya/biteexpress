@@ -38,6 +38,10 @@ const SWAGGER_PAGE = `<!doctype html>
 </html>
 `;
 
+/**
+ * Serves the OpenAPI document and a self-hosted Swagger UI. The document is
+ * built once at startup and passed in, so the routes do no work per request.
+ */
 export class DocsController {
   constructor(private readonly document: OpenApiDocument) {}
 

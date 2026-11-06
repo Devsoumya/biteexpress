@@ -12,6 +12,11 @@ import {
 
 export const RESTAURANTS_PATH = '/v1/restaurants';
 
+/**
+ * HTTP edge of the restaurant endpoints: validate the request, call the
+ * service, shape the response (status, headers, API body). No business rules
+ * and no MongoDB here (AGENTS.md §5).
+ */
 export class RestaurantController {
   constructor(private readonly service: RestaurantService) {}
 
@@ -30,6 +35,8 @@ export class RestaurantController {
     request: Request<{ id: string }>,
     response: Response,
   ): Promise<void> => {
+    // Checked at the edge, so the service is never called with a malformed
+    // id (the repository's ObjectId.createFromHexString would throw on one).
     const id = restaurantIdSchema.safeParse(request.params.id);
     if (!id.success) {
       throw new ApplicationError(

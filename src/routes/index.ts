@@ -15,6 +15,11 @@ export interface Controllers {
   restaurant: RestaurantController;
 }
 
+/**
+ * Mounts every router. Paths and verbs only: parsing, validation and
+ * responses live in the controllers. `route-coverage.test.ts` checks that
+ * each route mounted here is in the OpenAPI document, and the reverse.
+ */
 export function createRoutes(controllers: Controllers): Router {
   const router = Router();
   router.use(createDocsRouter(controllers.docs));

@@ -3,7 +3,7 @@ import type {
   InterpretationBody,
   SearchCriteria,
 } from '../models/search.model';
-import { resolveSort } from './restaurant-search.builder';
+import { resolveSort } from './search-sort';
 
 /**
  * 2 decimals is about 1 km: enough to tell areas apart, not enough to locate

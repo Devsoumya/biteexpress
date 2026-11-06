@@ -1,4 +1,5 @@
 import type { Collection, Document } from 'mongodb';
+import type { RestaurantDocument } from '../models/restaurant.model';
 import type { SearchExecutor } from '../models/search.model';
 
 /**
@@ -8,14 +9,16 @@ import type { SearchExecutor } from '../models/search.model';
  * limit aborted the query (ADR-003 Verification, check 38).
  */
 export class MongoSearchExecutor implements SearchExecutor {
-  constructor(private readonly collection: Collection<Document>) {}
+  constructor(private readonly collection: Collection<RestaurantDocument>) {}
 
   aggregate(
     pipeline: Document[],
     options: { maxTimeMS: number },
   ): Promise<Document[]> {
+    // Typed as plain documents: a $search pipeline returns stored-source
+    // fields plus $addFields, not whole RestaurantDocuments.
     return this.collection
-      .aggregate(pipeline, { maxTimeMS: options.maxTimeMS })
+      .aggregate<Document>(pipeline, { maxTimeMS: options.maxTimeMS })
       .toArray();
   }
 }

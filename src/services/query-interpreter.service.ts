@@ -103,6 +103,16 @@ export function parseAmount(word: string | undefined): number | undefined {
   return Number.isFinite(value) ? value * (thousands ? 1000 : 1) : undefined;
 }
 
+/** Words that carry no meaning of their own once the passes have run. */
+function isNoiseWord(word: string): boolean {
+  return (
+    FILLERS.includes(word) ||
+    CURRENCY_WORDS.has(word) ||
+    parseAmount(word) !== undefined
+  );
+}
+
+/** Longest phrase first, so "south indian" is tried before "indian". */
 function byLengthDescending(phrases: Iterable<string>): string[] {
   return [...phrases].sort((a, b) => b.split(' ').length - a.split(' ').length);
 }
@@ -213,14 +223,7 @@ function startsNonPlace(
   vocabulary: SearchVocabulary,
 ): boolean {
   const word = words.phraseAt(index, 1);
-  if (word === undefined) return true;
-  if (
-    FILLERS.includes(word) ||
-    CURRENCY_WORDS.has(word) ||
-    parseAmount(word) !== undefined
-  ) {
-    return true;
-  }
+  if (word === undefined || isNoiseWord(word)) return true;
   for (let count = MAX_PHRASE_WORDS; count >= 1; count--) {
     const phrase = words.phraseAt(index, count);
     if (
@@ -237,10 +240,22 @@ function startsNonPlace(
   return false;
 }
 
+/** A city found in the words: which words it used, and a note if corrected. */
+interface CityMatch {
+  city: string;
+  start: number;
+  count: number;
+  note?: string;
+}
+
 /**
- * Pass 4: "in <city>" or a bare known city, longest phrase first. For
- * "in <unknown>": corrected when exactly one city is one edit away; otherwise
- * the unknown city is kept, so the list is empty and the note says why.
+ * Pass 4: the city, by three strategies in order of confidence; the first
+ * that matches wins:
+ * 1. "in <known city>", longest phrase first;
+ * 2. a bare known city anywhere, longest phrase first;
+ * 3. "in <unknown>": corrected when exactly one city is one edit away;
+ *    otherwise the unknown city is kept, so the list is empty and the note
+ *    says why.
  */
 function parseCity(
   words: Words,
@@ -253,26 +268,55 @@ function parseCity(
     .filter(({ word }) => PLACE_PREPOSITIONS.includes(word))
     .map(({ index }) => index);
 
+  const match =
+    knownCityAfterPreposition(words, prepositions, vocabulary) ??
+    knownCityAnywhere(words, vocabulary) ??
+    unknownCityAfterPreposition(words, prepositions, vocabulary);
+  if (!match) return;
+
+  criteria.city = match.city;
+  if (match.note !== undefined) notes.push(match.note);
+  words.take(match.start, match.count);
+}
+
+/** Strategy 1: "in <known city>"; the preposition is used too. */
+function knownCityAfterPreposition(
+  words: Words,
+  prepositions: readonly number[],
+  vocabulary: SearchVocabulary,
+): CityMatch | undefined {
   for (const at of prepositions) {
     for (let count = MAX_PHRASE_WORDS; count >= 1; count--) {
       const city = knownCityAt(words, at + 1, count, vocabulary);
-      if (city) {
-        criteria.city = city;
-        words.take(at, count + 1);
-        return;
-      }
+      if (city) return { city, start: at, count: count + 1 };
     }
   }
+  return undefined;
+}
+
+/** Strategy 2: a known city without a preposition. */
+function knownCityAnywhere(
+  words: Words,
+  vocabulary: SearchVocabulary,
+): CityMatch | undefined {
   for (let count = MAX_PHRASE_WORDS; count >= 1; count--) {
     for (let i = 0; i < words.length; i++) {
       const city = knownCityAt(words, i, count, vocabulary);
-      if (city) {
-        criteria.city = city;
-        words.take(i, count);
-        return;
-      }
+      if (city) return { city, start: i, count };
     }
   }
+  return undefined;
+}
+
+/**
+ * Strategy 3: "in <something>" that is not a known city. Skipped when the
+ * words after the preposition mean something else ("in cheap", "in 500").
+ */
+function unknownCityAfterPreposition(
+  words: Words,
+  prepositions: readonly number[],
+  vocabulary: SearchVocabulary,
+): CityMatch | undefined {
   for (const at of prepositions) {
     if (startsNonPlace(words, at + 1, vocabulary)) continue;
     for (let count = Math.min(3, words.length - at - 1); count >= 1; count--) {
@@ -281,31 +325,36 @@ function parseCity(
       const candidates = [...vocabulary.cities.keys()].filter((city) =>
         withinOneEdit(typed, city),
       );
-      if (candidates.length === 1 && candidates[0] !== undefined) {
-        criteria.city = candidates[0];
-        notes.push(
-          `showing results for '${candidates[0]}' (you typed '${typed}')`,
-        );
-        words.take(at, count + 1);
-        return;
+      const [only] = candidates;
+      if (candidates.length === 1 && only !== undefined) {
+        return {
+          city: only,
+          start: at,
+          count: count + 1,
+          note: `showing results for '${only}' (you typed '${typed}')`,
+        };
       }
+      // Ambiguous: keep what was typed (empty result) and list the options.
       if (candidates.length > 1) {
-        criteria.city = typed;
-        notes.push(
-          `no city '${typed}'; did you mean ${candidates.sort().join(' or ')}?`,
-        );
-        words.take(at, count + 1);
-        return;
+        return {
+          city: typed,
+          start: at,
+          count: count + 1,
+          note: `no city '${typed}'; did you mean ${candidates.sort().join(' or ')}?`,
+        };
       }
     }
     const typed = words.phraseAt(at + 1, 1);
     if (typed !== undefined) {
-      criteria.city = normalizeCity(typed);
-      notes.push(`no city '${typed}'`);
-      words.take(at, 2);
-      return;
+      return {
+        city: normalizeCity(typed),
+        start: at,
+        count: 2,
+        note: `no city '${typed}'`,
+      };
     }
   }
+  return undefined;
 }
 
 /** How a dish was matched, for the interpretation's notes. */
@@ -397,11 +446,7 @@ function leftovers(words: Words, notes: string[]): string[] {
     run = [];
   };
   for (const { index, word } of words.remaining()) {
-    if (
-      FILLERS.includes(word) ||
-      CURRENCY_WORDS.has(word) ||
-      parseAmount(word) !== undefined
-    ) {
+    if (isNoiseWord(word)) {
       ignored.push(word);
       flush();
       continue;

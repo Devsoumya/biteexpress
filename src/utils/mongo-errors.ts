@@ -59,11 +59,20 @@ export function classifyMongoError(error: unknown): MongoFailureKind {
   return 'other';
 }
 
+/** The catalog codes for an outage or a timeout: a retryable 503. */
+export type OutageCode = Extract<
+  ErrorCode,
+  | 'DATABASE_TIMEOUT'
+  | 'DATABASE_UNAVAILABLE'
+  | 'SEARCH_TIMEOUT'
+  | 'SEARCH_UNAVAILABLE'
+>;
+
 /** The catalog code for a failure, per engine; undefined means "other". */
 export function failureCode(
   error: unknown,
   engine: 'database' | 'search',
-): ErrorCode | undefined {
+): OutageCode | undefined {
   const kind = classifyMongoError(error);
   if (kind === 'other') return undefined;
   if (engine === 'search') {

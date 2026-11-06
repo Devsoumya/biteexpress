@@ -1,10 +1,7 @@
 import type { Document } from 'mongodb';
 import type { SearchCriteria } from '../../../src/models/search.model';
 import { haversineDistanceKmExpression } from '../../../src/utils/geo';
-import {
-  buildSearchPipeline,
-  resolveSort,
-} from '../../../src/utils/restaurant-search.builder';
+import { buildSearchPipeline } from '../../../src/utils/restaurant-search.builder';
 
 const OPTIONS = {
   tenantId: 'biteexpress',
@@ -58,22 +55,6 @@ function search(
 function filters(c: SearchCriteria): Document[] {
   return search(c)['compound'].filter as Document[];
 }
-
-describe('resolveSort (Rule 3)', () => {
-  it.each<[string, Partial<SearchCriteria>, string]>([
-    ['nothing', {}, 'rating'],
-    ['a name', { name: 'goli' }, 'relevance'],
-    ['coordinates', { origin: ORIGIN }, 'distance'],
-    ['a name and coordinates', { name: 'goli', origin: ORIGIN }, 'relevance'],
-    [
-      'an explicit sort over a name',
-      { name: 'goli', sort: 'cost', currency: 'INR' },
-      'cost',
-    ],
-  ])('%s → %s', (_case, extra, expected) => {
-    expect(resolveSort(criteria(extra))).toBe(expected);
-  });
-});
 
 describe('buildSearchPipeline', () => {
   it('builds the default list: tenant only, rating order, stored source, limit + 1', () => {
@@ -363,14 +344,6 @@ describe('buildSearchPipeline', () => {
         minimumShouldMatch: 1,
       },
     };
-
-    it('resolveSort: dishes, text and boost terms default to relevance', () => {
-      expect(resolveSort(criteria({ dishes: [VADA_PAV] }))).toBe('relevance');
-      expect(resolveSort(criteria({ text: 'goli' }))).toBe('relevance');
-      expect(resolveSort(criteria({ boostTerms: ['cyber hub'] }))).toBe(
-        'relevance',
-      );
-    });
 
     it('a dish is a must clause for relevance (name phrase OR cuisine)', () => {
       const stage = search(criteria({ dishes: [VADA_PAV] }));

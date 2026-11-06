@@ -1,5 +1,6 @@
 import type {
   HealthRepository,
+  ReadinessChecks,
   ReadinessResult,
   ReadinessService,
   ReadinessServiceOptions,
@@ -39,38 +40,48 @@ export class CachedReadinessService implements ReadinessService {
     return result;
   }
 
+  /**
+   * Mongo first: without it the index check would only fail again, so it is
+   * skipped. The vocabulary is in-process state, so it is always reported.
+   */
   private async probe(): Promise<ReadinessResult> {
+    const mongo = await this.checkMongo();
+    const searchIndex: SearchIndexState =
+      mongo === 'ok' ? await this.checkSearchIndex() : 'skipped';
+    const vocabulary = this.checkVocabulary();
+    return {
+      ready:
+        mongo === 'ok' && searchIndex === 'ok' && vocabulary !== 'not_loaded',
+      checks: {
+        mongo,
+        searchIndex,
+        ...(vocabulary !== undefined && { vocabulary }),
+      },
+    };
+  }
+
+  private async checkMongo(): Promise<ReadinessChecks['mongo']> {
     try {
       await this.repository.ping();
+      return 'ok';
     } catch {
-      return {
-        ready: false,
-        checks: {
-          mongo: 'fail',
-          searchIndex: 'skipped',
-          ...(this.vocabulary && {
-            vocabulary: this.vocabulary.isLoaded() ? 'ok' : 'not_loaded',
-          }),
-        },
-      };
+      return 'fail';
     }
+  }
 
-    let searchIndex: SearchIndexState;
+  // A missing or unbuilt index makes $search return empty results, not an
+  // error (invariant 17), so readiness must look at it explicitly.
+  private async checkSearchIndex(): Promise<SearchIndexState> {
     try {
-      searchIndex = await this.repository.searchIndexState();
+      return await this.repository.searchIndexState();
     } catch {
-      searchIndex = 'error';
+      return 'error';
     }
-    if (!this.vocabulary) {
-      return {
-        ready: searchIndex === 'ok',
-        checks: { mongo: 'ok', searchIndex },
-      };
-    }
-    const vocabulary = this.vocabulary.isLoaded() ? 'ok' : 'not_loaded';
-    return {
-      ready: searchIndex === 'ok' && vocabulary === 'ok',
-      checks: { mongo: 'ok', searchIndex, vocabulary },
-    };
+  }
+
+  /** Undefined when no vocabulary is wired in (it is then not a check). */
+  private checkVocabulary(): ReadinessChecks['vocabulary'] {
+    if (!this.vocabulary) return undefined;
+    return this.vocabulary.isLoaded() ? 'ok' : 'not_loaded';
   }
 }

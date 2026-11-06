@@ -41,6 +41,11 @@ export interface RestaurantServiceDependencies {
   clock?: () => Date;
 }
 
+/**
+ * The business rules behind the restaurant endpoints: derived fields on
+ * create, tenant-safe 404s, criteria from query parameters or `q`, and
+ * cursor paging. Knows neither HTTP nor the driver (AGENTS.md §5).
+ */
 export class DefaultRestaurantService implements RestaurantService {
   private readonly vocabulary: VocabularyProvider;
   private readonly interpreter: QueryInterpreter;
@@ -86,7 +91,12 @@ export class DefaultRestaurantService implements RestaurantService {
 
   async list(query: ListRestaurantsQuery): Promise<ListRestaurantsResponse> {
     const criteria = toSearchCriteria(query, this.vocabulary.snapshot());
-    return this.page(criteria, query);
+    const page = await this.page(criteria, query);
+    setRequestSummary({
+      ...summarizeCriteria(criteria, query.limit),
+      ...pageSummary(page),
+    });
+    return page;
   }
 
   /**
@@ -114,8 +124,7 @@ export class DefaultRestaurantService implements RestaurantService {
     setRequestSummary({
       ...summarizeCriteria(criteria, query.limit),
       ...summarizeInterpretation(body),
-      resultCount: page.data.length,
-      hasNextPage: page.nextCursor !== null,
+      ...pageSummary(page),
     });
     return { ...page, interpretation: body };
   }
@@ -133,16 +142,21 @@ export class DefaultRestaurantService implements RestaurantService {
       ...(searchAfter !== undefined && { searchAfter }),
     });
     const last = hits.at(-1);
-    // For the request's log line: names and counts only (ADR-004).
-    setRequestSummary({
-      ...summarizeCriteria(criteria, limit),
-      resultCount: hits.length,
-      hasNextPage: hasMore,
-    });
     return {
       data: hits.map(toRestaurantListItem),
       nextCursor:
         hasMore && last ? encodeCursor(last.paginationToken, criteria) : null,
     };
   }
+}
+
+/**
+ * The page's part of the request's log line: counts only, never values
+ * (ADR-004). Each endpoint writes its summary once, after the page exists.
+ */
+function pageSummary(page: ListRestaurantsResponse): Record<string, unknown> {
+  return {
+    resultCount: page.data.length,
+    hasNextPage: page.nextCursor !== null,
+  };
 }

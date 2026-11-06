@@ -21,17 +21,18 @@ import type {
   SearchVocabulary,
 } from '../models/search.model';
 import { ApplicationError } from '../utils/application-error';
-import { failureCode } from '../utils/mongo-errors';
+import { type OutageCode, failureCode } from '../utils/mongo-errors';
 import { timed } from '../utils/request-context';
 import { buildSearchPipeline } from '../utils/restaurant-search.builder';
 import { MongoSearchExecutor } from './search.executor';
 
-const FAILURE_MESSAGES = {
+// Typed by OutageCode, so a new outage code without a message cannot compile.
+const OUTAGE_MESSAGES: Record<OutageCode, string> = {
   DATABASE_TIMEOUT: 'The database did not answer in time; retry shortly',
   DATABASE_UNAVAILABLE: 'The database is unavailable; retry shortly',
   SEARCH_TIMEOUT: 'Search did not answer in time; retry shortly',
   SEARCH_UNAVAILABLE: 'Search is unavailable; retry shortly',
-} as const;
+};
 
 /**
  * Runs a request-path operation, measures it, and turns an outage or a timeout into its
@@ -47,13 +48,8 @@ async function withFailureCodes<T>(
     return await timed(operation);
   } catch (error) {
     const code = failureCode(error, engine);
-    if (code !== undefined && code in FAILURE_MESSAGES) {
-      const known = code as keyof typeof FAILURE_MESSAGES;
-      throw new ApplicationError(known, FAILURE_MESSAGES[known], {
-        cause: error,
-      });
-    }
-    throw error;
+    if (code === undefined) throw error;
+    throw new ApplicationError(code, OUTAGE_MESSAGES[code], { cause: error });
   }
 }
 
@@ -76,9 +72,7 @@ export class MongoRestaurantRepository implements RestaurantRepository {
     this.tenantId = tenantId;
     this.maxTimeMS = maxTimeMS;
     this.searchIndexName = searchIndexName;
-    this.searchExecutor =
-      searchExecutor ??
-      new MongoSearchExecutor(collection as unknown as Collection<Document>);
+    this.searchExecutor = searchExecutor ?? new MongoSearchExecutor(collection);
   }
 
   /**
@@ -177,30 +171,9 @@ export class MongoRestaurantRepository implements RestaurantRepository {
   async vocabulary(): Promise<SearchVocabulary> {
     const [result] = await withFailureCodes('database', () =>
       this.collection
-        .aggregate<{
-          cities: { _id: { city: string; country: string } }[];
-          cuisines: { _id: string }[];
-        }>(
-          [
-            { $match: { tenantId: this.tenantId } },
-            {
-              $facet: {
-                cities: [
-                  {
-                    $group: {
-                      _id: { city: '$norm.city', country: '$country.code' },
-                    },
-                  },
-                ],
-                cuisines: [
-                  { $unwind: '$norm.cuisines' },
-                  { $group: { _id: '$norm.cuisines' } },
-                ],
-              },
-            },
-          ],
-          { maxTimeMS: this.maxTimeMS },
-        )
+        .aggregate<VocabularyFacets>(vocabularyPipeline(this.tenantId), {
+          maxTimeMS: this.maxTimeMS,
+        })
         .toArray(),
     );
     return {
@@ -212,8 +185,37 @@ export class MongoRestaurantRepository implements RestaurantRepository {
   }
 }
 
+/** The one document `vocabularyPipeline` returns. */
+interface VocabularyFacets {
+  cities: { _id: { city: string; country: string } }[];
+  cuisines: { _id: string }[];
+}
+
+/** Distinct (city, country) pairs and distinct cuisines, in one $facet pass. */
+function vocabularyPipeline(tenantId: string): Document[] {
+  return [
+    { $match: { tenantId } },
+    {
+      $facet: {
+        cities: [
+          { $group: { _id: { city: '$norm.city', country: '$country.code' } } },
+        ],
+        cuisines: [
+          { $unwind: '$norm.cuisines' },
+          { $group: { _id: '$norm.cuisines' } },
+        ],
+      },
+    },
+  ];
+}
+
+/** Top-level fields a seed row may omit (unknown) and an upsert must clear. */
 const OPTIONAL_TOP_LEVEL_FIELDS = ['location', 'cost', 'features'] as const;
 
+/**
+ * `$unset` for the optional fields a row does not have, so a re-seed removes
+ * a value that became unknown instead of keeping the stale one (invariant 1).
+ */
 function unsetAbsentOptionalFields(restaurant: SeedRestaurant): {
   $unset?: Record<string, ''>;
 } {

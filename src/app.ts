@@ -10,6 +10,11 @@ import type { AppDependencies } from './models/app.model';
 import { buildOpenApiDocument } from './openapi/openapi.document';
 import { createRoutes } from './routes';
 
+/**
+ * Builds the Express app from injected dependencies. No I/O and no module
+ * state: each test builds its own app with fakes or a real repository, and
+ * server.ts builds the production one.
+ */
 export function createApp(deps: AppDependencies): Express {
   const app = express();
 
@@ -29,6 +34,8 @@ export function createApp(deps: AppDependencies): Express {
       restaurant: new RestaurantController(deps.restaurantService),
     }),
   );
+  // Last: an unmatched path becomes a 404, and every error (thrown or
+  // rejected) is shaped by one handler into { error: { code, message } }.
   app.use(notFoundHandler);
   app.use(errorHandler);
 
