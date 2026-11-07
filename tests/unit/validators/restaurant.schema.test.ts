@@ -135,9 +135,101 @@ describe('createRestaurantBodySchema', () => {
       'features.tableBooking',
       'Must be a boolean',
     ],
+    [
+      'rating 0 (unrated is omitted, not 0)',
+      { averageRating: 0, votes: 5 },
+      'averageRating',
+      'Must be greater than 0; omit it when unrated',
+    ],
+    [
+      'a negative rating',
+      { averageRating: -1, votes: 5 },
+      'averageRating',
+      'Must be greater than 0; omit it when unrated',
+    ],
+    [
+      'rating above 5',
+      { averageRating: 5.1, votes: 5 },
+      'averageRating',
+      'Must be at most 5',
+    ],
+    [
+      'a rating that rounds to 0',
+      { averageRating: 0.04, votes: 5 },
+      'averageRating',
+      'Rounds to 0; omit it when unrated',
+    ],
+    [
+      'rating as a numeric string (no coercion)',
+      { averageRating: '4.1', votes: 5 },
+      'averageRating',
+      'Must be a number',
+    ],
+    ['fractional votes', { votes: 1.5 }, 'votes', 'Must be a whole number'],
+    ['negative votes', { votes: -1 }, 'votes', 'Must be 0 or more'],
+    [
+      'votes above int32',
+      { votes: 2_147_483_648 },
+      'votes',
+      'Must be at most 2147483647',
+    ],
+    [
+      'a rating without votes',
+      { averageRating: 4.1 },
+      'votes',
+      'Required when averageRating is given',
+    ],
+    [
+      'a rating with 0 votes',
+      { averageRating: 4.1, votes: 0 },
+      'votes',
+      'Must be at least 1 when averageRating is given',
+    ],
   ])('rejects %s', (_case, override, path, message) => {
     expect(detailsFor({ ...minimalCreateBody(), ...override })).toEqual([
       { path, message },
+    ]);
+  });
+
+  it.each<[Record<string, unknown>, Record<string, unknown>]>([
+    [
+      { averageRating: 5, votes: 1 },
+      { averageRating: 5, votes: 1 },
+    ],
+    [{ votes: 0 }, { votes: 0 }],
+    [{ votes: 3 }, { votes: 3 }],
+    [
+      { averageRating: 4, votes: 7 },
+      { averageRating: 4, votes: 7 },
+    ],
+  ])('accepts the rating fields %j', (fields, expected) => {
+    expect(
+      createRestaurantBodySchema.parse({ ...minimalCreateBody(), ...fields }),
+    ).toEqual({ ...minimalCreateBody(), ...expected });
+  });
+
+  it.each([
+    [4.45, 4.5],
+    [1.05, 1.1],
+    [3.449, 3.4],
+    [0.05, 0.1],
+    [4.96, 5],
+  ])('rounds averageRating %d to %d (half-up, one decimal)', (sent, stored) => {
+    expect(
+      createRestaurantBodySchema.parse({
+        ...minimalCreateBody(),
+        averageRating: sent,
+        votes: 10,
+      }).averageRating,
+    ).toBe(stored);
+  });
+
+  it('lists a bad rating and a bad votes value together', () => {
+    expect(
+      detailsFor({ ...minimalCreateBody(), averageRating: 9, votes: -2 }),
+    ).toEqual([
+      { path: 'averageRating', message: 'Must be at most 5' },
+      { path: 'votes', message: 'Must be 0 or more' },
     ]);
   });
 
@@ -212,6 +304,19 @@ describe('detail codes', () => {
       'invalid_value',
     ],
     ['latitude without longitude', { latitude: 1 }, 'longitude', 'required'],
+    ['a rating without votes', { averageRating: 4 }, 'votes', 'required'],
+    [
+      'a rating with 0 votes',
+      { averageRating: 4, votes: 0 },
+      'votes',
+      'too_small',
+    ],
+    [
+      'a rating that rounds to 0',
+      { averageRating: 0.01, votes: 2 },
+      'averageRating',
+      'too_small',
+    ],
   ])('%s → %s at %s', (_case, override, path, code) => {
     expect(fullDetailsFor({ ...minimalCreateBody(), ...override })).toEqual([
       expect.objectContaining({ path, code }),

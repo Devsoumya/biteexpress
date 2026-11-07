@@ -183,7 +183,7 @@ export function buildOpenApiDocument(): OpenApiDocument {
           tags: ['Restaurants'],
           summary: 'Create a restaurant',
           description:
-            'The server derives country name, currency, normalized city and cuisines, `votes: 0` and timestamps. Unknown keys are rejected.',
+            'The server derives country name, currency, normalized city and cuisines, and timestamps. `averageRating` and `votes` are optional: without them the restaurant is unrated with 0 votes. Unknown keys are rejected.',
           operationId: 'createRestaurant',
           requestBody: {
             required: true,

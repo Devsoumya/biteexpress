@@ -50,6 +50,8 @@ export function fullCreateBody(): Record<string, unknown> {
     averageCostForTwo: 300,
     priceRange: 1,
     features: { tableBooking: false, onlineDelivery: true },
+    averageRating: 4.1,
+    votes: 120,
   };
 }
 

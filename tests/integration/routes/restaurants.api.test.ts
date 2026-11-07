@@ -13,6 +13,7 @@ import {
   seedRestaurant,
 } from '../../helpers/restaurant-fixtures';
 import { TEST_DB_NAME, connectTestClient } from '../../helpers/test-database';
+import { waitForSearch } from '../../helpers/wait-for-search';
 
 // Writes use their own tenants and clean up, so the shared collection and
 // search index stay empty for other tests.
@@ -71,7 +72,7 @@ describe('restaurant endpoints against Atlas Local', () => {
         city: 'Gurugram',
         country: { code: 'IN', name: 'India' },
         cuisines: ['Street Food', 'Fast Food'],
-        averageRating: null,
+        averageRating: 4.1,
         locality: 'Sector 29',
         location: { latitude: 28.4595, longitude: 77.0688 },
         cost: { averageForTwo: 300, currency: 'INR', priceRange: 1 },
@@ -80,8 +81,8 @@ describe('restaurant endpoints against Atlas Local', () => {
           onlineDelivery: true,
           deliveringNow: null,
         },
-        votes: 0,
-        ratingLabel: 'Not rated',
+        votes: 120,
+        ratingLabel: 'Very Good',
         sourceId: null,
       });
 
@@ -91,7 +92,7 @@ describe('restaurant endpoints against Atlas Local', () => {
         tenantId: TENANT,
         country: { code: 'IN', name: 'India' },
         cost: { currency: 'INR' },
-        rating: { votes: 0 },
+        rating: { average: 4.1, votes: 120 },
         norm: { city: 'gurgaon', cuisines: ['street food', 'fast food'] },
         schemaVersion: 1,
         createdAt: NOW,
@@ -117,6 +118,88 @@ describe('restaurant endpoints against Atlas Local', () => {
       expect(stored).not.toHaveProperty('features');
       expect(stored?.cost).toEqual({ currency: 'PHP' });
       expect(stored?.rating).toEqual({ votes: 0 });
+    });
+
+    it('stores a whole-number rating (int32 in BSON) and votes without a rating', async () => {
+      const app = appFor(TENANT);
+      await request(app)
+        .post('/v1/restaurants')
+        .send({
+          ...minimalCreateBody(),
+          name: 'Whole',
+          averageRating: 4,
+          votes: 9,
+        })
+        .expect(201);
+      await request(app)
+        .post('/v1/restaurants')
+        .send({ ...minimalCreateBody(), name: 'Few votes', votes: 3 })
+        .expect(201);
+
+      const whole = await collection.findOne({
+        tenantId: TENANT,
+        name: 'Whole',
+      });
+      const few = await collection.findOne({
+        tenantId: TENANT,
+        name: 'Few votes',
+      });
+      expect(whole?.rating).toEqual({ average: 4, votes: 9 });
+      expect(few?.rating).toEqual({ votes: 3 });
+    });
+
+    it('returns 400 on votes for a rating without votes, and writes nothing', async () => {
+      const response = await request(appFor(TENANT))
+        .post('/v1/restaurants')
+        .send({ ...minimalCreateBody(), averageRating: 4.1 });
+
+      expect(response.status).toBe(400);
+      expectDocumentedResponse(response, 'POST', '/v1/restaurants');
+      expect(response.body.error).toMatchObject({
+        code: 'VALIDATION_ERROR',
+        details: [
+          {
+            path: 'votes',
+            code: 'required',
+            message: 'Required when averageRating is given',
+          },
+        ],
+      });
+      await expect(
+        collection.countDocuments({ tenantId: TENANT }),
+      ).resolves.toBe(0);
+    });
+
+    it('places a rated restaurant by its rating in sort=rating, once indexed', async () => {
+      const app = appFor(TENANT);
+      const post = (name: string, rating: Record<string, number>) =>
+        request(app)
+          .post('/v1/restaurants')
+          .send({ ...minimalCreateBody(), name, ...rating })
+          .expect(201);
+      await post('Mid', { averageRating: 3.2, votes: 40 });
+      await post('Top', { averageRating: 4.66, votes: 15 });
+      await post('Unrated', { votes: 2 });
+      // The default list keeps unrated restaurants, so 3 means all are indexed.
+      await waitForSearch(async () => {
+        const all = await request(app).get('/v1/restaurants');
+        return (all.body as { data: unknown[] }).data.length === 3;
+      });
+
+      const response = await request(app).get('/v1/restaurants?sort=rating');
+
+      expect(response.status).toBe(200);
+      expect(
+        response.body.data.map(
+          (item: { name: string; averageRating: number }) => [
+            item.name,
+            item.averageRating,
+          ],
+        ),
+      ).toEqual([
+        ['Top', 4.7],
+        ['Mid', 3.2],
+      ]);
     });
 
     it('omits the location for 0,0', async () => {

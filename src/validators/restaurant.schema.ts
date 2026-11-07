@@ -50,6 +50,29 @@ const longitude = z
   .min(-180, 'Must be between -180 and 180')
   .max(180, 'Must be between -180 and 180');
 
+// Bounds are checked on the value sent, then it is rounded half-up to one
+// decimal, like the source data. `abort` gives 0 a single message.
+// `.overwrite` (not `.transform`) keeps the bounds in the generated OpenAPI.
+const averageRating = z
+  .number('Must be a number')
+  .gt(0, { error: 'Must be greater than 0; omit it when unrated', abort: true })
+  .lte(5, { error: 'Must be at most 5', abort: true })
+  .overwrite((value) => Math.round(value * 10) / 10)
+  .refine((value) => value > 0, {
+    error: 'Rounds to 0; omit it when unrated',
+    params: { detailCode: 'too_small' },
+  });
+
+// int32: the driver stores a larger whole number as a double, which the
+// $jsonSchema validator (int or long) would reject as a 500.
+const MAX_VOTES = 2_147_483_647;
+
+const votes = z
+  .number('Must be a number')
+  .int('Must be a whole number')
+  .min(0, 'Must be 0 or more')
+  .max(MAX_VOTES, `Must be at most ${MAX_VOTES}`);
+
 const features = z.strictObject({
   tableBooking: z.boolean('Must be a boolean').optional(),
   onlineDelivery: z.boolean('Must be a boolean').optional(),
@@ -58,7 +81,8 @@ const features = z.strictObject({
 
 /**
  * POST /v1/restaurants (RFC-001 §5). Only client-set fields: country name,
- * currency, `norm.*`, votes, timestamps and tenant are derived server-side.
+ * currency, `norm.*`, timestamps and tenant are derived server-side. A rating
+ * may be carried over from another system (ADR-001 Rule 14).
  * Exactly 0 on a coordinate is valid input meaning "unknown" (ADR-001 Rule 3);
  * the mapper omits the location.
  */
@@ -90,11 +114,34 @@ export const createRestaurantBodySchema = z
         .max(4, 'Must be an integer from 1 to 4')
         .optional(),
       features: features.optional(),
+      averageRating: averageRating
+        .optional()
+        .describe(
+          'Out of 5, rounded to one decimal. Omit when unrated. Requires votes of at least 1',
+        ),
+      votes: votes.optional().describe('Number of ratings. Default 0'),
     },
     'Body must be a JSON object',
   )
   .superRefine(
     (body, context) => {
+      // An average of no votes means nothing.
+      if (body.averageRating !== undefined && body.votes === undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['votes'],
+          message: 'Required when averageRating is given',
+          params: { detailCode: 'required' },
+        });
+      }
+      if (body.averageRating !== undefined && body.votes === 0) {
+        context.addIssue({
+          code: 'custom',
+          path: ['votes'],
+          message: 'Must be at least 1 when averageRating is given',
+          params: { detailCode: 'too_small' },
+        });
+      }
       // Issue on the missing half, which is the field the client must add.
       if (body.latitude !== undefined && body.longitude === undefined) {
         context.addIssue({

@@ -66,8 +66,11 @@ export function toRestaurantDraft(
       ...(body.priceRange !== undefined && { priceRange: body.priceRange }),
     },
     ...(features && { features }),
-    // A new restaurant has no ratings; votes counts them from 0.
-    rating: { votes: 0 },
+    // Unrated unless the client carries a rating over (ADR-001 Rule 14).
+    rating: {
+      ...(body.averageRating !== undefined && { average: body.averageRating }),
+      votes: body.votes ?? 0,
+    },
     norm: { city: normalizeCity(body.city), cuisines: cuisines.norm },
     schemaVersion: RESTAURANT_SCHEMA_VERSION,
   };

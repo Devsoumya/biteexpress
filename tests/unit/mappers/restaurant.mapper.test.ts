@@ -42,7 +42,7 @@ describe('toRestaurantDraft', () => {
       cuisines: ['Street Food', 'Fast Food'],
       cost: { averageForTwo: 300, currency: 'INR', priceRange: 1 },
       features: { tableBooking: false, onlineDelivery: true },
-      rating: { votes: 0 },
+      rating: { average: 4.1, votes: 120 },
       norm: { city: 'gurgaon', cuisines: ['street food', 'fast food'] },
       schemaVersion: 1,
     });
@@ -78,6 +78,24 @@ describe('toRestaurantDraft', () => {
       expect(draft).not.toHaveProperty('location');
     },
   );
+
+  it('keeps votes without an average (rated by too few to publish one)', () => {
+    const draft = toRestaurantDraft(
+      body({ ...minimalCreateBody(), votes: 3 }),
+      country('PH'),
+    );
+
+    expect(draft.rating).toEqual({ votes: 3 });
+  });
+
+  it('stores the rating rounded to one decimal', () => {
+    const draft = toRestaurantDraft(
+      body({ ...minimalCreateBody(), averageRating: 4.45, votes: 9 }),
+      country('PH'),
+    );
+
+    expect(draft.rating).toEqual({ average: 4.5, votes: 9 });
+  });
 
   it('omits features when the client sent an empty object', () => {
     const draft = toRestaurantDraft(

@@ -68,7 +68,7 @@ The seed cleans the CSV (one junk row skipped, 5 garbled names repaired, a syste
 
 | Endpoint                     | Behavior                                                                                                                                                                    |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /v1/restaurants`       | Validates (unknown keys rejected), derives country, currency and `norm.*`, inserts; **201** with `Location`                                                                 |
+| `POST /v1/restaurants`       | Validates (unknown keys rejected), derives country, currency and `norm.*`, inserts; **201** with `Location`. Optional `averageRating` (rounded to one decimal) and `votes`  |
 | `GET /v1/restaurants/{id}`   | The full detail; 400 for a malformed id; 404 if missing or another tenant's                                                                                                 |
 | `GET /v1/restaurants`        | Filters `name`, `city`, `cuisine`, `minRating`, `minVotes`, cost range, `lat`/`lng`/`radiusKm`; sorts `distance`, `rating`, `cost`; keyset paging (`limit` ≤ 100, `cursor`) |
 | `GET /v1/restaurants/search` | `q` in natural language plus every list parameter; returns `interpretation`                                                                                                 |
@@ -118,6 +118,7 @@ The decisions most worth discussing. The ADRs hold the rest, each with its reaso
 | Every filter in `compound.filter`, never after `$search`                     | Later stages only see stored fields, so a `$match` silently fails (verified)                         | —                                                 |
 | Keyset paging with cursors bound to their query                              | Deep pages are as cheap as page 1; reusing a cursor under another sort returns 400, not a wrong page | No total count, no page numbers                   |
 | Unknown values placed last, never faked                                      | An honest order, nothing silently dropped                                                            | Explicit sorts by rating or cost exclude unknowns |
+| POST accepts a rating with votes (ADR-001 Rule 14)                           | Restaurants moved from the monolith keep their rating                                                | Any caller can rate its own listing until auth    |
 | Cost needs a currency; no INR default                                        | An INR default would make "near me" in Dubai return nothing                                          | Clients outside known cities send `currency`      |
 | Rule-based natural-language interpreter, vocabulary from the database        | Deterministic, testable, no API key or network call                                                  | English only; dish matching is approximate        |
 | Specific error codes; no fallback in the MVP                                 | Clients know when to retry; the fallback would double the query layer                                | Lists and search are down while search is down    |
